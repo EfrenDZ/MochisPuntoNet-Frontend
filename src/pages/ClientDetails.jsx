@@ -17,8 +17,8 @@ import { CSS } from '@dnd-kit/utilities';
 // --- ÍCONOS ---
 import { 
     Tv, Smartphone, Plus, X, Layers, Play, Trash2, Lock, Unlock, 
-    AlertTriangle, CheckCircle, Link as LinkIcon, Upload, Loader, 
-    Save, Clock, Edit2, Image as ImageIcon, Folder, FolderPlus
+    AlertTriangle, CheckCircle, Link as LinkIcon, Unlink, Upload, Loader, 
+    Save, Clock, Edit2, Image as ImageIcon, Folder, FolderPlus, Monitor, Wifi
 } from 'lucide-react';
 
 // ==========================================
@@ -195,9 +195,9 @@ export default function ClientDetails() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [activeId, setActiveId] = useState(null);
     const [selectedRowId, setSelectedRowId] = useState("0");
-    const [selectedEntity, setSelectedEntity] = useState(null); // { type: 'screen'|'group', data: obj }
+    const [selectedEntity, setSelectedEntity] = useState(null); 
     
-    // --- ESTADOS DE PLAYLIST/EDICIÓN ---
+    // --- ESTADOS DE PLAYLIST ---
     const [playlist, setPlaylist] = useState([]);
     const originalPlaylistRef = useRef([]);
     const [groupScreens, setGroupScreens] = useState([]); 
@@ -208,7 +208,8 @@ export default function ClientDetails() {
     // --- MODALES Y FORMS ---
     const [modals, setModals] = useState({ createScreen: false, createGroup: false, editScreen: false });
     const [inputs, setInputs] = useState({ screenName: '', groupName: '', orientation: 'horizontal', pairingCode: '' });
-    
+    const [editingScreen, setEditingScreen] = useState(null);
+
     // --- FEEDBACK ---
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
@@ -219,14 +220,12 @@ export default function ClientDetails() {
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    // --- EFECTOS ---
     useEffect(() => { fetchData(); }, [id]);
 
     useEffect(() => {
         if (!playlist?.length) return;
         const currentItem = playlist[currentPreviewIndex];
         if (!currentItem) { setCurrentPreviewIndex(0); return; }
-        
         const duration = (parseInt(currentItem.custom_duration) || 10) * 1000;
         const timer = setTimeout(() => {
             setCurrentPreviewIndex(prev => (prev + 1) % playlist.length);
@@ -239,10 +238,8 @@ export default function ClientDetails() {
         if (selectedEntity.type === 'screen' && selectedEntity.data.group_id) {
             setHasUnsavedChanges(false); return;
         }
-
         let changed = false;
         const original = originalPlaylistRef.current;
-        
         if (playlist.length !== original.length) changed = true;
         else {
             for (let i = 0; i < playlist.length; i++) {
@@ -262,7 +259,6 @@ export default function ClientDetails() {
         setHasUnsavedChanges(changed);
     }, [playlist, groupScreens, selectedEntity]);
 
-    // --- FUNCIONES ---
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -307,7 +303,6 @@ export default function ClientDetails() {
         setSelectedEntity({ type, data: entity });
         setCurrentPreviewIndex(0);
         setInputs(prev => ({ ...prev, pairingCode: '' }));
-        
         try {
             if (type === 'screen') {
                 if (entity.group_id) {
@@ -330,7 +325,7 @@ export default function ClientDetails() {
         } catch (e) { console.error(e); }
     };
 
-    // --- ACCIONES FALTANTES AGREGADAS ---
+    // --- ACCIONES AGREGADAS Y CORREGIDAS ---
     const addRow = () => {
         const newKey = String(Object.keys(items).length + Math.floor(Math.random()*1000));
         setItems({ ...items, [newKey]: [] });
@@ -403,43 +398,46 @@ export default function ClientDetails() {
             });
             fetchData();
             showToast('Vinculado');
+            // Actualizamos estado local
             setSelectedEntity(prev => ({...prev, data: {...prev.data, status:'online'}}));
         } catch(e){ console.error(e); showAlert('danger', 'Error', 'Código inválido'); }
+    };
+
+    const handleUnlinkTV = () => {
+        showAlert('danger', 'Desvincular', 'La pantalla dejará de recibir contenido. ¿Seguro?', async () => {
+            closeAlert();
+            try {
+                await api.post('/admin/screens/unlink', { screenId: selectedEntity.data.id });
+                fetchData();
+                showToast('Desvinculado correctamente');
+                // Actualizamos estado local para que aparezca el input de nuevo
+                setSelectedEntity(prev => ({...prev, data: {...prev.data, status:'offline'}}));
+            } catch (e) {
+                console.error(e);
+                showAlert('danger', 'Error', 'No se pudo desvincular');
+            }
+        });
     };
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if(!file) return;
-        
         setLoaders(p => ({...p, uploading: true}));
-        
         const fd = new FormData();
-        // 1. Aseguramos que el ID existe, si no, enviamos 'general'
         const safeId = id ? String(id) : 'general';
-        fd.append('clientId', safeId); 
+        fd.append('clientId', safeId);
         fd.append('file', file);
-
         try {
-            // 2. EL TRUCO: { "Content-Type": undefined }
-            // Esto obliga al navegador a detectar que es un FormData y 
-            // generar el header correcto 'multipart/form-data; boundary=----WebKit...'
-            // Si no hacemos esto, Axios intenta usar application/json y falla.
-            await api.post('/media/upload', fd, {
-                headers: { "Content-Type": undefined }
-            });
-
+            await api.post('/media/upload', fd, { headers: { "Content-Type": undefined } });
             const res = await api.get(`/media/library?clientId=${id}`);
             setAvailableMedia(res.data);
-            showToast('Archivo subido correctamente');
+            showToast('Archivo subido');
         } catch(e) { 
-            console.error("Error Upload:", e);
-            // Mostramos el error real del servidor si existe
-            const msg = e.response?.data?.error || 'No se pudo subir el archivo';
-            showAlert('danger', 'Error de Subida', msg); 
+            const msg = e.response?.data?.error || 'Fallo al subir';
+            showAlert('danger', 'Error', msg); 
         } 
         finally { 
-            setLoaders(p => ({...p, uploading: false})); 
-            // Limpiamos el input para poder subir el mismo archivo de nuevo si se quiere
+            setLoaders(p => ({...p, uploading: false}));
             e.target.value = null; 
         }
     };
@@ -462,7 +460,6 @@ export default function ClientDetails() {
     const handleSaveAllChanges = async () => {
         if (!selectedEntity || !hasUnsavedChanges) return;
         setLoaders(prev => ({...prev, saving: true}));
-        
         try {
             const isGroup = selectedEntity.type === 'group';
             const entityId = selectedEntity.data.id;
@@ -773,7 +770,11 @@ export default function ClientDetails() {
                         <div className="modal-left-panel">
                             <div style={{padding:'30px', textAlign:'center'}}>
                                 <h2 style={{margin:0}}>{selectedEntity.data.name}</h2>
-                                <p style={{opacity:0.6, fontSize:'13px', margin:'5px 0'}}>{selectedEntity.type === 'group' ? 'Grupo Sincronizado' : selectedEntity.data.status}</p>
+                                <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginTop:'5px', opacity:0.7, fontSize:'13px'}}>
+                                    {selectedEntity.type === 'screen' ? (
+                                        <><div style={{width:'8px', height:'8px', borderRadius:'50%', background: selectedEntity.data.status === 'online' ? '#4ade80' : '#f87171'}}></div>{selectedEntity.data.status === 'online' ? 'Online' : 'Offline'}</>
+                                    ) : ( <><Layers size={14}/> <span>Grupo Sincronizado</span></> )}
+                                </div>
                             </div>
                             <div style={{flex:1, width:'100%', padding:'20px', display:'flex', flexDirection:'column', alignItems:'center'}}>
                                 <div style={{width:'100%', aspectRatio:'16/9', background:'black', borderRadius:'12px', overflow:'hidden', position:'relative', border:'1px solid #334155'}}>
@@ -783,10 +784,25 @@ export default function ClientDetails() {
                                         <img src={playlist[currentPreviewIndex]?.url} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/>
                                     ) : <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', opacity:0.3}}><Play size={40}/></div>}
                                 </div>
+                                
+                                {/* ----------------------- */}
+                                {/* SECCIÓN DE VINCULACIÓN  */}
+                                {/* ----------------------- */}
                                 {selectedEntity.type === 'screen' && !selectedEntity.data.group_id && (
-                                    <div style={{marginTop:'30px', width:'100%', padding:'20px', background:'rgba(255,255,255,0.05)', borderRadius:'12px'}}>
-                                        <input type="text" placeholder="CÓDIGO TV" maxLength={4} value={inputs.pairingCode} onChange={e => setInputs(p => ({...p, pairingCode: e.target.value.toUpperCase()}))} style={{width:'100%', padding:'10px', textAlign:'center', marginBottom:'10px', background:'transparent', border:'1px solid #475569', color:'white'}} />
-                                        <button onClick={handleLinkTV} className="btn-primary" style={{width:'100%', justifyContent:'center'}}>Vincular</button>
+                                    <div style={{marginTop:'30px', width:'100%', padding:'20px', borderRadius:'12px', background: selectedEntity.data.status === 'online' ? 'transparent' : 'rgba(255,255,255,0.05)'}}>
+                                        {selectedEntity.data.status === 'online' ? (
+                                            <div style={{textAlign:'center'}}>
+                                                <p style={{color:'#4ade80', fontWeight:'bold', marginBottom:'15px', fontSize:'14px'}}>● Pantalla Vinculada</p>
+                                                <button onClick={handleUnlinkTV} style={{width:'100%', justifyContent:'center', padding:'12px', background:'#fee2e2', color:'#ef4444', border:'none', borderRadius:'10px', display:'flex', alignItems:'center', gap:'8px', fontWeight:'700', cursor:'pointer'}}>
+                                                    <Unlink size={18}/> Desvincular Dispositivo
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <input type="text" placeholder="CÓDIGO TV" maxLength={4} value={inputs.pairingCode} onChange={e => setInputs(p => ({...p, pairingCode: e.target.value.toUpperCase()}))} style={{width:'100%', padding:'10px', textAlign:'center', marginBottom:'10px', background:'transparent', border:'1px solid #475569', color:'white', borderRadius:'8px'}} />
+                                                <button onClick={handleLinkTV} className="btn-primary" style={{width:'100%', justifyContent:'center'}}>Vincular</button>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
