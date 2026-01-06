@@ -18,12 +18,11 @@ import { CSS } from '@dnd-kit/utilities';
 import { 
     Tv, Smartphone, Plus, X, Layers, Play, Trash2, Lock, Unlock, 
     AlertTriangle, CheckCircle, Link as LinkIcon, Upload, Loader, 
-    Save, Clock, Check, Edit2, Image as ImageIcon, Folder, FolderPlus, 
-    List, Monitor
+    Save, Clock, Edit2, Image as ImageIcon, Folder, FolderPlus
 } from 'lucide-react';
 
 // ==========================================
-// 1. COMPONENTES UI REUTILIZABLES (LIMPIOS)
+// 1. COMPONENTES UI REUTILIZABLES
 // ==========================================
 
 const CustomAlert = ({ config, onClose }) => {
@@ -69,12 +68,11 @@ const ToastNotification = ({ visible, message, type }) => {
 };
 
 // ==========================================
-// 2. ITEMS DND MEMOIZADOS (OPTIMIZACIÓN)
+// 2. ITEMS DND MEMOIZADOS
 // ==========================================
 
 const SortablePlaylistItem = memo(({ item, onRemove, onUpdateDuration, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.item_id });
-    
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
     return (
@@ -179,7 +177,7 @@ const SortableRow = memo(({ id, items, screensData, groups, onScreenClick, isSel
 });
 
 // ==========================================
-// 3. COMPONENTE PRINCIPAL (LÓGICA)
+// 3. COMPONENTE PRINCIPAL
 // ==========================================
 
 export default function ClientDetails() {
@@ -198,7 +196,6 @@ export default function ClientDetails() {
     const [activeId, setActiveId] = useState(null);
     const [selectedRowId, setSelectedRowId] = useState("0");
     const [selectedEntity, setSelectedEntity] = useState(null); // { type: 'screen'|'group', data: obj }
-    const [mobileTab, setMobileTab] = useState('playlist'); 
     
     // --- ESTADOS DE PLAYLIST/EDICIÓN ---
     const [playlist, setPlaylist] = useState([]);
@@ -211,8 +208,7 @@ export default function ClientDetails() {
     // --- MODALES Y FORMS ---
     const [modals, setModals] = useState({ createScreen: false, createGroup: false, editScreen: false });
     const [inputs, setInputs] = useState({ screenName: '', groupName: '', orientation: 'horizontal', pairingCode: '' });
-    const [editingScreen, setEditingScreen] = useState(null);
-
+    
     // --- FEEDBACK ---
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
@@ -224,10 +220,8 @@ export default function ClientDetails() {
     );
 
     // --- EFECTOS ---
-
     useEffect(() => { fetchData(); }, [id]);
 
-    // Loop de Preview
     useEffect(() => {
         if (!playlist?.length) return;
         const currentItem = playlist[currentPreviewIndex];
@@ -240,7 +234,6 @@ export default function ClientDetails() {
         return () => clearTimeout(timer);
     }, [playlist, currentPreviewIndex]);
 
-    // Detector de cambios sin guardar
     useEffect(() => {
         if (!selectedEntity) return;
         if (selectedEntity.type === 'screen' && selectedEntity.data.group_id) {
@@ -250,7 +243,6 @@ export default function ClientDetails() {
         let changed = false;
         const original = originalPlaylistRef.current;
         
-        // Comparar Playlist
         if (playlist.length !== original.length) changed = true;
         else {
             for (let i = 0; i < playlist.length; i++) {
@@ -261,7 +253,6 @@ export default function ClientDetails() {
                 }
             }
         }
-        // Comparar Pantallas de Grupo
         if (selectedEntity.type === 'group') {
             const origSet = new Set(originalGroupScreensRef.current);
             const currSet = new Set(groupScreens);
@@ -271,8 +262,7 @@ export default function ClientDetails() {
         setHasUnsavedChanges(changed);
     }, [playlist, groupScreens, selectedEntity]);
 
-    // --- FUNCIONES DE CARGA Y LÓGICA ---
-
+    // --- FUNCIONES ---
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -302,8 +292,6 @@ export default function ClientDetails() {
         setItems(finalItems);
     };
 
-    // --- ACCIONES DE USUARIO ---
-
     const handleEntityClick = async (entity, type) => {
         if (hasUnsavedChanges) {
             showAlert('warning', 'Cambios sin guardar', '¿Qué deseas hacer?', null, true, async () => {
@@ -318,7 +306,6 @@ export default function ClientDetails() {
     const loadEntity = async (entity, type) => {
         setSelectedEntity({ type, data: entity });
         setCurrentPreviewIndex(0);
-        setMobileTab('playlist');
         setInputs(prev => ({ ...prev, pairingCode: '' }));
         
         try {
@@ -332,7 +319,7 @@ export default function ClientDetails() {
                     setPlaylist(res.data);
                     originalPlaylistRef.current = JSON.parse(JSON.stringify(res.data));
                 }
-            } else { // Group
+            } else { 
                 const res = await api.get(`/admin/groups/${entity.id}/playlist`);
                 setPlaylist(res.data);
                 originalPlaylistRef.current = JSON.parse(JSON.stringify(res.data));
@@ -341,6 +328,135 @@ export default function ClientDetails() {
                 originalGroupScreensRef.current = [...assigned];
             }
         } catch (e) { console.error(e); }
+    };
+
+    // --- ACCIONES FALTANTES AGREGADAS ---
+    const addRow = () => {
+        const newKey = String(Object.keys(items).length + Math.floor(Math.random()*1000));
+        setItems({ ...items, [newKey]: [] });
+        setSelectedRowId(newKey);
+        setIsEditMode(true);
+    };
+
+    const handleCreateScreen = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/admin/screens', { 
+                clientId: id, 
+                name: inputs.screenName, 
+                orientation: inputs.orientation, 
+                row_index: parseInt(selectedRowId) 
+            });
+            setModals(p => ({...p, createScreen: false}));
+            setInputs(p => ({...p, screenName: ''}));
+            fetchData();
+            showToast('Pantalla creada');
+        } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo crear pantalla'); }
+    };
+
+    const handleCreateGroup = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/admin/groups', { clientId: id, name: inputs.groupName });
+            setModals(p => ({...p, createGroup: false}));
+            setInputs(p => ({...p, groupName: ''}));
+            fetchData();
+            showToast('Grupo creado');
+        } catch (e) { console.error(e); }
+    };
+
+    const handleDeleteGroup = (groupId) => {
+        showAlert('danger', '¿Eliminar Grupo?', 'Las pantallas quedarán sueltas.', async () => {
+            closeAlert();
+            try { await api.delete(`/admin/groups/${groupId}`); fetchData(); showToast('Grupo eliminado'); } catch (e) { console.error(e); }
+        });
+    };
+
+    const requestDeleteRow = (rowId, rowItems) => {
+        showAlert('danger', 'Borrar Fila', 'Se borrarán las pantallas.', () => {
+            closeAlert();
+            Promise.all(rowItems.map(sid => api.delete(`/admin/screens/${sid}`)))
+                .then(() => {
+                    const n = {...items};
+                    delete n[rowId];
+                    setItems(n);
+                    fetchData();
+                });
+        });
+    };
+
+    const confirmDeleteScreen = (id) => {
+        const clean = String(id).split(':')[0];
+        showAlert('danger', 'Borrar Pantalla', 'Confirmar acción', async () => {
+            closeAlert();
+            await api.delete(`/admin/screens/${clean}`);
+            fetchData();
+        });
+    };
+
+    const handleLinkTV = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/admin/screens/link', { 
+                screenId: selectedEntity.data.id, 
+                pairingCode: inputs.pairingCode 
+            });
+            fetchData();
+            showToast('Vinculado');
+            setSelectedEntity(prev => ({...prev, data: {...prev.data, status:'online'}}));
+        } catch(e){ console.error(e); showAlert('danger', 'Error', 'Código inválido'); }
+    };
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        
+        setLoaders(p => ({...p, uploading: true}));
+        
+        const fd = new FormData();
+        // 1. Aseguramos que el ID existe, si no, enviamos 'general'
+        const safeId = id ? String(id) : 'general';
+        fd.append('clientId', safeId); 
+        fd.append('file', file);
+
+        try {
+            // 2. EL TRUCO: { "Content-Type": undefined }
+            // Esto obliga al navegador a detectar que es un FormData y 
+            // generar el header correcto 'multipart/form-data; boundary=----WebKit...'
+            // Si no hacemos esto, Axios intenta usar application/json y falla.
+            await api.post('/media/upload', fd, {
+                headers: { "Content-Type": undefined }
+            });
+
+            const res = await api.get(`/media/library?clientId=${id}`);
+            setAvailableMedia(res.data);
+            showToast('Archivo subido correctamente');
+        } catch(e) { 
+            console.error("Error Upload:", e);
+            // Mostramos el error real del servidor si existe
+            const msg = e.response?.data?.error || 'No se pudo subir el archivo';
+            showAlert('danger', 'Error de Subida', msg); 
+        } 
+        finally { 
+            setLoaders(p => ({...p, uploading: false})); 
+            // Limpiamos el input para poder subir el mismo archivo de nuevo si se quiere
+            e.target.value = null; 
+        }
+    };
+    
+    const handleAddToPlaylistLocal = (mediaId) => {
+        if(!selectedEntity) return;
+        const mediaSelected = availableMedia.find(m => m.id === mediaId);
+        if(!mediaSelected) return;
+        const newItem = { 
+            item_id: `temp-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, 
+            media_id: mediaId, 
+            url: mediaSelected.url, 
+            type: mediaSelected.type, 
+            custom_duration: 10, 
+            display_order: playlist.length 
+        };
+        setPlaylist(prev => [...prev, newItem]);
     };
 
     const handleSaveAllChanges = async () => {
@@ -353,7 +469,6 @@ export default function ClientDetails() {
             const original = originalPlaylistRef.current;
             const current = playlist;
             
-            // 1. Calcular Diffs de Playlist
             const origIds = new Set(original.map(i => i.item_id));
             const currIds = new Set(current.map(i => i.item_id));
             const toDelete = [...origIds].filter(id => !currIds.has(id));
@@ -369,37 +484,30 @@ export default function ClientDetails() {
             })));
             toUpdate.forEach(item => promises.push(api.put(`/playlist/${item.item_id}`, { duration: parseInt(item.custom_duration) })));
 
-            // 2. Diff de Grupos
             if (isGroup) {
                 const origS = new Set(originalGroupScreensRef.current);
                 const currS = new Set(groupScreens);
                 let changed = origS.size !== currS.size;
                 if(!changed) for(let id of currS) if(!origS.has(id)) changed = true;
-                
                 if (changed) promises.push(api.put('/admin/groups/screens', { groupId: entityId, screenIds: groupScreens }));
             }
 
             await Promise.all(promises);
 
-            // 3. Reordenar y recargar
             const route = isGroup ? `/admin/groups/${entityId}/playlist` : `/playlist/${entityId}`;
             const freshRes = await api.get(route);
             let freshList = freshRes.data;
-            
-            // Reordenar basado en el orden visual actual
             const visualOrder = current.map(i => i.media_id);
             freshList.sort((a,b) => visualOrder.indexOf(a.media_id) - visualOrder.indexOf(b.media_id));
-            
             await api.put('/playlist/reorder', { items: freshList.map((item, idx) => ({ id: item.item_id, order: idx })) });
 
-            // 4. Update Final
             const finalRes = await api.get(route);
             setPlaylist(finalRes.data);
             originalPlaylistRef.current = JSON.parse(JSON.stringify(finalRes.data));
             
             if (isGroup) {
                 originalGroupScreensRef.current = [...groupScreens];
-                fetchData(); // Refrescar mapa para ver cambios de grupo
+                fetchData();
             }
             
             setHasUnsavedChanges(false);
@@ -412,7 +520,7 @@ export default function ClientDetails() {
         }
     };
 
-    // --- DND HANDLERS (LOGICA PURA) ---
+    // --- DND HANDLERS ---
     const findContainer = (id) => { if (id in items) return id; return Object.keys(items).find((key) => items[key].includes(String(id))); };
     
     const handleDragOver = useCallback((event) => {
@@ -450,7 +558,6 @@ export default function ClientDetails() {
         if (activeContainer && overContainer) {
             const activeIndex = items[activeContainer].indexOf(String(active.id));
             const overIndex = items[overContainer].indexOf(String(over?.id));
-
             if (activeIndex !== overIndex || activeContainer !== overContainer) {
                 setItems((prev) => {
                     const newItems = { ...prev };
@@ -463,7 +570,7 @@ export default function ClientDetails() {
         setActiveId(null);
     }, [items]);
 
-    // --- RENDER ---
+    // --- RENDER HELPERS ---
     const showAlert = (type, title, message, onConfirm, isExitConfirmation, onSaveAndExit) => setAlertConfig({ isOpen: true, type, title, message, onConfirm: () => { setAlertConfig(p => ({...p, isOpen:false})); onConfirm && onConfirm(); }, isExitConfirmation, onSaveAndExit });
     const closeAlert = () => setAlertConfig(p => ({...p, isOpen:false}));
     const showToast = (msg, type='success') => { setToast({visible:true, message:msg, type}); setTimeout(() => setToast(p=>({...p, visible:false})), 3000); };
@@ -473,21 +580,18 @@ export default function ClientDetails() {
 
     return (
         <SidebarLayout>
-            {/* INYECCIÓN DE ESTILOS CSS (LIMPIEZA DEL JSX) */}
+            {/* INYECCIÓN DE ESTILOS CSS */}
             <style>{`
-                /* LAYOUT & UTILS */
                 .loading-screen, .error-screen { display: flex; justify-content: center; align-items: center; height: 50vh; color: #94a3b8; }
                 .spin-anim { animation: spin 1s infinite linear; }
                 @keyframes spin { 100% { transform: rotate(360deg); } }
                 
-                /* HEADER */
                 .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
                 .page-title { font-size: 26px; font-weight: 800; color: #1e293b; margin: 0; }
                 .subtitle { color: #64748b; margin-top: 5px; font-size: 14px; }
                 .header-actions { display: flex; gap: 12px; align-items: center; }
                 .divider { width: 1px; height: 30px; background: #cbd5e1; }
                 
-                /* BUTTONS */
                 .btn-primary { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.2s; }
                 .btn-primary:hover { background: #2563eb; }
                 .btn-secondary { background: white; color: #475569; border: 1px solid #cbd5e1; padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
@@ -498,7 +602,6 @@ export default function ClientDetails() {
                 .btn-mini.edit { color: #3b82f6; }
                 .btn-mini.delete { color: #ef4444; }
 
-                /* GROUPS */
                 .groups-section { margin-bottom: 30px; }
                 .section-label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
                 .groups-grid { display: flex; gap: 15px; flex-wrap: wrap; }
@@ -509,7 +612,6 @@ export default function ClientDetails() {
                 .group-badge { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
                 .btn-delete-absolute { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.2); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-                /* ROWS & SCREENS */
                 .board-container { display: flex; flexDirection: column; gap: 20px; padding-bottom: 100px; }
                 .row-container { padding: 20px; border: 2px solid #e2e8f0; border-radius: 20px; min-height: 180px; transition: all 0.2s; background: transparent; }
                 .row-container.selected { border-color: #3b82f6; background: rgba(59, 130, 246, 0.02); }
@@ -522,7 +624,6 @@ export default function ClientDetails() {
                 .row-items-grid { display: flex; flex-wrap: wrap; gap: 25px; align-items: flex-start; min-height: 120px; }
                 .empty-row-placeholder { width: 100%; height: 100px; border: 2px dashed #cbd5e1; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 14px; }
 
-                /* SCREEN CARD */
                 .screen-item-wrapper { position: relative; }
                 .screen-card { width: 200px; height: 120px; border-radius: 16px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; transition: all 0.2s; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3); }
                 .screen-card.vertical { width: 110px; height: 190px; }
@@ -539,14 +640,12 @@ export default function ClientDetails() {
                 .drag-handle { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.2); color: white; padding: 4px; border-radius: 4px; }
                 .edit-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 5px; z-index: 10; }
 
-                /* MODAL OVERLAY & STRUCTURE */
                 .overlay-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 200; display: flex; justify-content: center; align-items: center; }
                 .modal-container { background: white; width: 90vw; max-width: 1200px; height: 85vh; border-radius: 24px; display: flex; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.5); position: relative; }
                 .btn-close-global { position: absolute; top: 15px; right: 15px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.1); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 20; }
                 .modal-left-panel { flex: 1; background: #0f172a; border-right: 1px solid #1e293b; color: white; display: flex; flex-direction: column; align-items: center; }
                 .modal-right-panel { flex: 1.6; background: #f8fafc; display: flex; flex-direction: column; overflow: hidden; }
 
-                /* PLAYLIST ITEMS */
                 .playlist-item { display: flex; height: 80px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s; }
                 .playlist-item.is-temp { background: #fffbeb; border-color: #fcd34d; }
                 .playlist-thumb { width: 140px; background: #000; position: relative; display: flex; align-items: center; justify-content: center; }
@@ -561,21 +660,21 @@ export default function ClientDetails() {
                 .btn-icon-delete { background: transparent; border: 1px solid #e2e8f0; color: #94a3b8; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
                 .btn-icon-delete:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
 
-                /* ALERTS & TOASTS */
                 .modern-modal.alert-box { width: 400px; padding: 30px; border-radius: 20px; background: white; text-align: center; }
                 .alert-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
                 .alert-danger { background: #fee2e2; color: #ef4444; } .alert-danger-btn { background: #ef4444; }
                 .alert-warning { background: #fef3c7; color: #f59e0b; }
                 .alert-info { background: #dbeafe; color: #3b82f6; }
                 .alert-actions { display: flex; gap: 10px; justify-content: center; margin-top: 25px; }
+                .btn-text-danger { background: none; border: none; color: #ef4444; font-weight: 600; cursor: pointer; }
+                
                 .toast-notification { position: fixed; bottom: 20px; right: 20px; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; gap: 10px; align-items: center; font-weight: 600; color: #334155; z-index: 9999; animation: slideIn 0.3s ease; }
                 .toast-notification.success { border-left: 5px solid #10b981; } .toast-notification.success svg { color: #10b981; }
                 @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-                /* RESPONSIVE */
                 @media (max-width: 1024px) {
                     .modal-container { flex-direction: column; height: 90vh; }
-                    .modal-left-panel { display: none; } /* En movil ocultamos preview para priorizar playlist */
+                    .modal-left-panel { display: none; }
                     .screen-card { width: 160px; height: 100px; }
                 }
             `}</style>
@@ -611,7 +710,7 @@ export default function ClientDetails() {
                 </div>
             )}
 
-            {/* TABLERO DRAG & DROP */}
+            {/* TABLERO DND */}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={e => setActiveId(e.active.id)} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
                 <div className="board-container">
                     {Object.keys(items).map(key => (
@@ -636,7 +735,7 @@ export default function ClientDetails() {
                 </DragOverlay>
             </DndContext>
 
-            {/* --- MODALES SIMPLIFICADOS (Inputs) --- */}
+            {/* MODALES */}
             {modals.createScreen && (
                 <div className="overlay-backdrop" onClick={() => setModals(p => ({...p, createScreen: false}))}>
                     <div className="modern-modal alert-box" onClick={e => e.stopPropagation()}>
@@ -652,15 +751,25 @@ export default function ClientDetails() {
                     </div>
                 </div>
             )}
-            {/* Aquí irían los otros modales (CreateGroup, EditScreen) con la misma estructura limpia... */}
             
-            {/* --- MODAL PRINCIPAL (PLAYLIST) --- */}
+            {modals.createGroup && (
+                <div className="overlay-backdrop" onClick={() => setModals(p => ({...p, createGroup: false}))}>
+                    <div className="modern-modal alert-box" onClick={e => e.stopPropagation()}>
+                        <h3>Nuevo Grupo</h3>
+                        <form onSubmit={handleCreateGroup}>
+                            <input autoFocus type="text" placeholder="Nombre del Grupo" value={inputs.groupName} onChange={e => setInputs(p => ({...p, groupName: e.target.value}))} style={{width:'100%', padding:'12px', border:'1px solid #cbd5e1', borderRadius:'8px', marginBottom:'15px'}} />
+                            <button type="submit" className="btn-primary" style={{width:'100%', justifyContent:'center'}}>Crear Grupo</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL PRINCIPAL */}
             {selectedEntity && (
                 <div className="overlay-backdrop" onClick={() => hasUnsavedChanges ? showAlert('warning', 'Salir', 'Cambios pendientes', null, true, handleSaveAllChanges) : setSelectedEntity(null)}>
                     <div className="modal-container" onClick={e => e.stopPropagation()}>
                         <button className="btn-close-global" onClick={() => hasUnsavedChanges ? showAlert('warning', 'Salir', 'Cambios pendientes', null, true, handleSaveAllChanges) : setSelectedEntity(null)}><X size={20}/></button>
                         
-                        {/* PANEL IZQUIERDO: PREVIEW */}
                         <div className="modal-left-panel">
                             <div style={{padding:'30px', textAlign:'center'}}>
                                 <h2 style={{margin:0}}>{selectedEntity.data.name}</h2>
@@ -683,7 +792,6 @@ export default function ClientDetails() {
                             </div>
                         </div>
 
-                        {/* PANEL DERECHO: PLAYLIST */}
                         <div className="modal-right-panel">
                             <div className="header-actions" style={{padding:'20px', borderBottom:'1px solid #e2e8f0', justifyContent:'space-between'}}>
                                 <h3 style={{margin:0, color:'#1e293b'}}>Contenido</h3>
@@ -707,7 +815,6 @@ export default function ClientDetails() {
                                 </DndContext>
                             </div>
 
-                            {/* BIBLIOTECA MINIATURA */}
                             <div style={{height:'160px', borderTop:'1px solid #e2e8f0', background:'white', padding:'15px', display:'flex', flexDirection:'column'}}>
                                 <div style={{display:'flex', justifyContent:'space-between', marginBottom:'10px'}}>
                                     <span style={{fontSize:'12px', fontWeight:'700', color:'#64748b', textTransform:'uppercase'}}>Biblioteca</span>
