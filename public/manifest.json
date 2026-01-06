@@ -1,0 +1,16 @@
+{
+  "short_name": "MochisTV",
+  "name": "Mochis.net Player",
+  "icons": [
+    {
+      "src": "vite.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "/tv",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "orientation": "landscape"
+}
