@@ -1,136 +1,183 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
+import MediaLibraryModal from '../components/MediaLibraryModal';
 import api from '../config/api';
-import { Users, Tv, Image, Activity, Wifi, WifiOff } from 'lucide-react';
+import { 
+    Users, Image, Bell, CheckCircle2, 
+    ChevronRight, WifiOff
+} from 'lucide-react';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ clients: 0, screens: 0, media: 0, online: 0, offline: 0 });
-  const [user, setUser] = useState({});
-
-  // Estados para vincular TV (Acción Rápida)
-  const [code, setCode] = useState('');
-  const [screenName, setScreenName] = useState('');
+  const navigate = useNavigate();
+  const [user, setUser] = useState({ full_name: 'Admin' });
+  
+  const [stats, setStats] = useState({ clients: 0, screens: 0, online: 0, offline: 0 });
+  const [offlineScreens, setOfflineScreens] = useState([]); 
+  const [showMediaModal, setShowMediaModal] = useState(false);
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('user'));
-    setUser(u || {});
-    fetchStats();
+    if (u) setUser(u);
+    fetchData();
   }, []);
 
-  const fetchStats = async () => {
+  const fetchData = async () => {
     try {
-      const res = await api.get('/admin/stats');
-      setStats(res.data);
+      const resStats = await api.get('/admin/stats');
+      setStats(resStats.data);
+      
+      const resScreens = await api.get('/admin/screens'); 
+      
+      if (resScreens.data && Array.isArray(resScreens.data)) {
+          const list = resScreens.data.filter(s => s.status !== 'online');
+          setOfflineScreens(list);
+      }
     } catch (error) {
-      console.error(error);
+      console.error("Error cargando dashboard:", error);
     }
   };
 
-  const handlePairing = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/admin/pair', { pairingCode: code, screenName });
-      alert('✅ ¡Pantalla vinculada!');
-      setCode('');
-      setScreenName('');
-      fetchStats(); // Actualizar números
-    } catch (error) {
-      alert('❌ Error al vincular');
-    }
-  };
+  const hasIssues = stats.offline > 0;
 
   return (
     <SidebarLayout>
-      <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: 0 }}>Panel de Control</h1>
-        <p style={{ color: '#6b7280', marginTop: '5px' }}>Bienvenido de nuevo, {user.full_name}</p>
-      </div>
-
-      {/* --- GRID DE ESTADÍSTICAS --- */}
-      <div style={gridContainer}>
-        <StatCard title="Clientes Totales" value={stats.clients} icon={<Users size={24} color="#4f46e5" />} bg="#e0e7ff" />
-        <StatCard title="Pantallas Activas" value={stats.online} icon={<Wifi size={24} color="#16a34a" />} bg="#dcfce7" />
-        <StatCard title="Pantallas Offline" value={stats.offline} icon={<WifiOff size={24} color="#ef4444" />} bg="#fee2e2" />
-        <StatCard title="Archivos en Nube" value={stats.media} icon={<Image size={24} color="#f59e0b" />} bg="#fef3c7" />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px', marginTop: '30px' }}>
+      <style>{`
+        /* --- NUEVO: Wrapper para el scroll invisible --- */
+        .scroll-wrapper {
+            height: 100vh; /* Ocupa toda la altura */
+            overflow-y: auto; /* Habilita el scroll vertical */
+            
+            /* Ocultar scrollbar en Firefox */
+            scrollbar-width: none; 
+            
+            /* Ocultar scrollbar en IE y Edge */
+            -ms-overflow-style: none; 
+        }
         
-        {/* --- ACCIÓN RÁPIDA: VINCULAR --- */}
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-            <div style={{ padding: '8px', borderRadius: '6px', backgroundColor: '#eff6ff' }}><Tv size={20} color="#3b82f6"/></div>
-            <h3 style={{ margin: 0 }}>Vincular Pantalla Rápida</h3>
-          </div>
-          
-          <form onSubmit={handlePairing} style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                    type="text" placeholder="Código (Ej: 4821)" 
-                    value={code} onChange={e => setCode(e.target.value)}
-                    maxLength={4} required style={inputStyle}
-                />
-                <input 
-                    type="text" placeholder="Nombre (Ej: Recepción)" 
-                    value={screenName} onChange={e => setScreenName(e.target.value)}
-                    required style={{ ...inputStyle, flex: 1 }}
-                />
+        /* Ocultar scrollbar en Chrome, Safari y Opera */
+        .scroll-wrapper::-webkit-scrollbar {
+            display: none;
+        }
+        /* --------------------------------------------- */
+
+        .dash-container { max-width: 1000px; margin: 0 auto; padding: 20px; font-family: 'Inter', sans-serif; padding-bottom: 80px; }
+        .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; flex-wrap: wrap; gap: 15px; }
+        .greeting-title { font-size: 24px; font-weight: 700; color: #111827; margin: 0; }
+        .greeting-sub { color: #6b7280; margin-top: 4px; font-size: 14px; }
+        
+        .status-pill { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 99px; font-size: 13px; font-weight: 600; transition: all 0.3s ease; }
+        .status-ok { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .status-warn { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        
+        .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 40px; }
+        .hero-card {
+            background: white; border-radius: 20px; padding: 30px; border: 1px solid #f3f4f6;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); cursor: pointer; position: relative; overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; justify-content: space-between; height: 160px;
+        }
+        .hero-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08); border-color: #e5e7eb; }
+        .hero-icon-bg { position: absolute; top: -20px; right: -20px; opacity: 0.05; transform: rotate(15deg); }
+        .hero-title { font-size: 20px; font-weight: 700; color: #1f2937; margin-bottom: 8px; }
+        .hero-desc { font-size: 14px; color: #6b7280; }
+        .hero-arrow { width: 36px; height: 36px; border-radius: 50%; background: #f9fafb; display: flex; align-items: center; justifyContent: center; color: #374151; transition: 0.2s; align-self: flex-start; margin-top: 20px; }
+        .hero-card:hover .hero-arrow { background: #111827; color: white; }
+        
+        .alerts-section { animation: fadeIn 0.5s ease; }
+        .section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 15px; display: block; }
+        .alert-item {
+            display: flex; align-items: center; justify-content: space-between; background: white; padding: 16px 20px;
+            border-radius: 12px; border: 1px solid #f3f4f6; border-left: 4px solid #ef4444; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        
+        @media (max-width: 768px) {
+            .hero-grid { grid-template-columns: 1fr; }
+            .dash-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
+      {/* Envolvemos todo el contenido en el div scroll-wrapper */}
+      <div className="scroll-wrapper">
+          <div className="dash-container">
+            
+            {/* HEADER */}
+            <div className="dash-header">
+                {/* Puedes poner un saludo aquí si quieres, o dejarlo vacío como estaba */}
+                
+                <div className={`status-pill ${hasIssues ? 'status-warn' : 'status-ok'}`}>
+                    {hasIssues ? (
+                        <><Bell size={16} /> {stats.offline} Pantallas Offline</>
+                    ) : (
+                        <><CheckCircle2 size={16} /> Todo operativo</>
+                    )}
+                </div>
             </div>
-            <button type="submit" style={btnPrimary}>Vincular Ahora</button>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: '5px 0 0 0' }}>
-              * Esta pantalla se asignará al Cliente "Agencia" por defecto.
-            </p>
-          </form>
-        </div>
 
-        {/* --- RESUMEN DE ACTIVIDAD --- */}
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-            <div style={{ padding: '8px', borderRadius: '6px', backgroundColor: '#f3e8ff' }}><Activity size={20} color="#9333ea"/></div>
-            <h3 style={{ margin: 0 }}>Estado del Sistema</h3>
-          </div>
-          
-          <div style={statusRow}>
-            <span style={dotGreen}></span>
-            <span>Servidor API</span>
-            <span style={{ marginLeft: 'auto', color: '#16a34a', fontWeight: 'bold' }}>Online</span>
-          </div>
-          <div style={statusRow}>
-            <span style={dotGreen}></span>
-            <span>Base de Datos</span>
-            <span style={{ marginLeft: 'auto', color: '#16a34a', fontWeight: 'bold' }}>Conectada</span>
-          </div>
-          <div style={statusRow}>
-            <span style={dotGreen}></span>
-            <span>Cloudinary CDN</span>
-            <span style={{ marginLeft: 'auto', color: '#16a34a', fontWeight: 'bold' }}>Activo</span>
-          </div>
-        </div>
+            {/* HERO CARDS */}
+            <div className="hero-grid">
+                <div className="hero-card" onClick={() => navigate('/clients')}>
+                    <div style={{ position: 'relative', zIndex: 2 }}>
+                        <div style={{ padding: '10px', background: '#eff6ff', width: 'fit-content', borderRadius: '10px', color: '#2563eb', marginBottom: '15px' }}>
+                            <Users size={24} />
+                        </div>
+                        <div className="hero-title">Clientes</div>
+                        <div className="hero-desc">Clientes: {stats.clients}</div>
+                    </div>
+                    <Users size={180} className="hero-icon-bg" color="#2563eb" />
+                    <div className="hero-arrow"><ChevronRight size={20} /></div>
+                </div>
 
+                <div className="hero-card" onClick={() => setShowMediaModal(true)}>
+                    <div style={{ position: 'relative', zIndex: 2 }}>
+                        <div style={{ padding: '10px', background: '#fffbeb', width: 'fit-content', borderRadius: '10px', color: '#d97706', marginBottom: '15px' }}>
+                            <Image size={24} />
+                        </div>
+                        <div className="hero-title">Biblioteca Multimedia</div>
+                        <div className="hero-desc">Archivos en la nube: {stats.media}</div>
+                    </div>
+                    <Image size={180} className="hero-icon-bg" color="#d97706" />
+                    <div className="hero-arrow"><ChevronRight size={20} /></div>
+                </div>
+            </div>
+
+            {/* LISTA DE PANTALLAS CON PROBLEMAS */}
+            {hasIssues && offlineScreens.length > 0 && (
+                <div className="alerts-section">
+                    <span className="section-label">TVs sin conexión ({offlineScreens.length})</span>
+                    {offlineScreens.map(screen => (
+                        <div key={screen.id} className="alert-item">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                <div style={{ padding: '8px', background: '#fee2e2', borderRadius: '50%', color: '#991b1b' }}>
+                                    <WifiOff size={18} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                        {screen.name}
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                        {screen.client_name || 'Sin asignar'}
+                                    </div>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => navigate('/clients')}
+                                style={{ border: 'none', background: 'transparent', color: '#2563eb', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
+                            >
+                                Revisar
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+          </div>
       </div>
+
+      <MediaLibraryModal 
+        isOpen={showMediaModal}
+        onClose={() => setShowMediaModal(false)}
+        clientId={null}
+      />
     </SidebarLayout>
   );
 }
-
-// Componente Pequeño para las Tarjetas
-function StatCard({ title, value, icon, bg }) {
-  return (
-    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: '15px' }}>
-      <div style={{ width: '50px', height: '50px', borderRadius: '12px', backgroundColor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {icon}
-      </div>
-      <div>
-        <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>{title}</p>
-        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{value}</h2>
-      </div>
-    </div>
-  );
-}
-
-// Estilos
-const gridContainer = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' };
-const cardStyle = { backgroundColor: 'white', padding: '25px', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' };
-const inputStyle = { padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', outline: 'none' };
-const btnPrimary = { padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' };
-const statusRow = { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid #f3f4f6' };
-const dotGreen = { width: '8px', height: '8px', backgroundColor: '#16a34a', borderRadius: '50%' };

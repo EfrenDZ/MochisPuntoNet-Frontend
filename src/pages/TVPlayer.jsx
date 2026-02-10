@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../config/api';
-import { WifiOff, CloudOff, Loader, Maximize, AlertCircle } from 'lucide-react';
+import { WifiOff, CloudOff, Loader, Maximize, Lock } from 'lucide-react';
 
 export default function TVPlayer() {
-    const [status, setStatus] = useState('loading'); // loading, pairing, playing, offline, empty
+    const [status, setStatus] = useState('loading'); 
     const [pairingCode, setPairingCode] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
     
@@ -17,7 +17,6 @@ export default function TVPlayer() {
     const [previousIndex, setPreviousIndex] = useState(null); 
     const [isTransitioning, setIsTransitioning] = useState(false);
     
-    // --- ESTADO DE INTERACCIÓN (EL FIX IMPORTANTE) ---
     const [hasInteracted, setHasInteracted] = useState(false);
 
     // Refs
@@ -29,18 +28,13 @@ export default function TVPlayer() {
     // 1. INICIALIZACIÓN
     useEffect(() => {
         const token = localStorage.getItem('device_token');
-        console.log("📺 TV Iniciada. Token encontrado:", !!token);
-
         if (token) {
             checkForUpdates();
-            // Revisar actualizaciones cada minuto
-            updateIntervalRef.current = setInterval(checkForUpdates, 60000);
+            // REVISAR CADA 30 SEGUNDOS (Puedes bajarlo a 10s si quieres reacción más rápida)
+            updateIntervalRef.current = setInterval(checkForUpdates, 30000);
         } else {
             startPairingProcess();
         }
-
-        // NOTA: Hemos eliminado el listener que reseteaba 'hasInteracted' al salir de fullscreen.
-        // Ahora, una vez que das click, se queda activado para siempre en esta sesión.
 
         return () => {
             clearTimeout(timerRef.current);
@@ -50,53 +44,33 @@ export default function TVPlayer() {
         };
     }, []);
 
-    // --- FUNCIÓN DE INICIO (CORREGIDA) ---
+    // --- WAKE LOCK & FULLSCREEN ---
     const enterFullscreenAndWakeLock = async () => {
-        // 1. PRIMERO: Quitamos el overlay inmediatamente.
-        // Esto asegura que veas el contenido aunque el fullscreen falle.
         setHasInteracted(true); 
-
         try {
-            console.log("🖥️ Intentando entrar a Pantalla Completa...");
             const elem = document.documentElement;
-            
-            // Intentamos fullscreen
             if (elem.requestFullscreen) await elem.requestFullscreen();
-            else if (elem.webkitRequestFullscreen) await elem.webkitRequestFullscreen();
             
-            // Intentamos mantener la pantalla encendida (Wake Lock)
             if ('wakeLock' in navigator) {
                 wakeLockRef.current = await navigator.wakeLock.request('screen');
-                console.log("💡 WakeLock activado");
             }
-        } catch (err) {
-            console.warn("⚠️ No se pudo activar Pantalla Completa (o fue cancelada), pero continuamos reproduciendo.", err);
-        }
+        } catch (err) { console.warn("Fullscreen/WakeLock error", err); }
     };
 
     // --- CACHÉ ---
     const cacheMedia = async (url) => {
         try {
-            // Evitar caché de Mixed Content (HTTP en HTTPS)
-            if (window.location.protocol === 'https:' && url.startsWith('http:')) {
-                return url; 
-            }
-            
+            if (window.location.protocol === 'https:' && url.startsWith('http:')) return url; 
             const cache = await caches.open('tv-media-v1');
             const cachedRes = await cache.match(url);
-            if (cachedRes) {
-                const blob = await cachedRes.blob();
-                return URL.createObjectURL(blob);
-            }
+            if (cachedRes) return URL.createObjectURL(await cachedRes.blob());
+            
             const response = await fetch(url, { mode: 'cors' });
             if (response.ok) {
                 await cache.put(url, response.clone());
-                const blob = await response.blob();
-                return URL.createObjectURL(blob);
+                return URL.createObjectURL(await response.blob());
             }
-        } catch (e) { 
-            console.warn("⚠️ Error cacheando:", url);
-        }
+        } catch (e) { console.warn("Error cacheando:", url); }
         return url;
     };
 
@@ -107,17 +81,28 @@ export default function TVPlayer() {
         }));
     };
 
-    // --- API UPDATES ---
+    // ==========================================
+    // 🔍 CHECK FOR UPDATES (EL FIX CRÍTICO)
+    // ==========================================
     const checkForUpdates = async () => {
         try {
             const token = localStorage.getItem('device_token');
+            if (!token) return;
+
             const res = await api.get('/tv/playlist', { headers: { Authorization: `Bearer ${token}` } });
-            const serverData = res.data || [];
             
+            // SI LLEGAMOS AQUÍ, LA CUENTA ESTÁ ACTIVA
+            // Si antes estaba suspendida, la reactivamos:
+            if (status === 'suspended' || status === 'offline') {
+                setStatus('loading'); // Breve loading para reiniciar el ciclo
+                setErrorMsg('');
+            }
+
+            const serverData = res.data || [];
             const newHash = JSON.stringify(serverData.map(i => i.item_id + i.display_order + i.duration_seconds));
 
             if (newHash !== playlistHash) {
-                console.log("🔄 Nueva playlist detectada...");
+                console.log("🔄 Contenido actualizado");
                 const readyPlaylist = await processPlaylist(serverData);
                 
                 if (activePlaylist.length === 0) {
@@ -128,24 +113,53 @@ export default function TVPlayer() {
                     setPendingPlaylist(readyPlaylist);
                     setPlaylistHash(newHash);
                 }
-            } else {
-                if (status === 'loading' && activePlaylist.length > 0) setStatus('playing');
-                else if (status === 'loading' && serverData.length === 0) setStatus('empty');
+            } else if (activePlaylist.length === 0 && serverData.length > 0) {
+                 // Caso borde: Se recuperó de suspensión pero el hash era igual (raro pero posible)
+                 const readyPlaylist = await processPlaylist(serverData);
+                 setActivePlaylist(readyPlaylist);
+                 setStatus('playing');
             }
+
         } catch (error) {
-            console.error("❌ Error Update:", error);
+            console.error("Estado API Check:", error.response?.status);
+
+            // --- AQUÍ ESTÁ LA CORRECCIÓN ---
             if (error.response?.status === 403) {
-                localStorage.removeItem('device_token');
-                window.location.reload();
+                const errorData = error.response.data;
+                
+                // DETECTAR SUSPENSIÓN
+                if (errorData.command === 'stop' || 
+                   (errorData.error && errorData.error.toLowerCase().includes('suspendida'))) {
+                    
+                    console.log("🔒 CUENTA SUSPENDIDA DETECTADA");
+                    
+                    // 1. Cortar loop inmediatamente
+                    clearTimeout(timerRef.current);
+                    
+                    // 2. Vaciar playlist para forzar re-render
+                    setActivePlaylist([]); 
+                    setPendingPlaylist(null);
+                    
+                    // 3. Cambiar estado visual
+                    setStatus('suspended');
+                    setErrorMsg('Su servicio ha sido suspendido temporalmente.');
+                
+                } else {
+                    // Token inválido real
+                    localStorage.removeItem('device_token');
+                    window.location.reload();
+                }
             } else {
+                // Error de conexión (Internet se fue)
+                // NO borramos la playlist si es solo error de red, para que siga tocando lo que tiene en caché
                 if (activePlaylist.length === 0) {
                     setStatus('offline');
-                    setErrorMsg('No se puede conectar al servidor.');
                 }
             }
         }
     };
 
+    // --- PAIRING ---
     const startPairingProcess = async () => {
         try {
             const res = await api.post('/tv/setup');
@@ -164,13 +178,13 @@ export default function TVPlayer() {
             }, 5000);
         } catch (e) { 
             setStatus('offline');
-            setErrorMsg('Error al generar código de vinculación.');
+            setErrorMsg('Error de conexión al servidor.');
         }
     };
 
-    // --- LÓGICA DE REPRODUCCIÓN ---
+    // --- LOOP REPRODUCCIÓN ---
     const nextItem = () => {
-        if (activePlaylist.length === 0) return;
+        if (activePlaylist.length === 0) return; // Freno de seguridad
 
         setPreviousIndex(currentIndex);
         setIsTransitioning(true);
@@ -189,16 +203,18 @@ export default function TVPlayer() {
         }, 1000);
     };
 
+    // --- LÓGICA DE REPRODUCCIÓN (FIX DURACIÓN) ---
     useEffect(() => {
         if (status !== 'playing' || activePlaylist.length === 0) return;
         
         const item = activePlaylist[currentIndex];
         if (!item) { setCurrentIndex(0); return; }
 
-        console.log(`▶️ Reproduciendo: ${item.name}`);
+        console.log(`▶️ Reproduciendo: ${item.name} | Duración: ${item.custom_duration}s`);
 
         if (item.type !== 'video') {
-            const duration = (item.duration_seconds || 10) * 1000;
+            // FIX: Usamos item.custom_duration explícitamente, o 10s por defecto.
+            const duration = (parseInt(item.custom_duration) || 10) * 1000;
             timerRef.current = setTimeout(nextItem, duration);
         }
         
@@ -206,115 +222,79 @@ export default function TVPlayer() {
     }, [currentIndex, status, activePlaylist]);
 
 
-    // --- RENDERIZADO DEL MEDIO ---
+    // --- RENDERIZADO ---
     const renderMedia = (item, animationClass = '') => {
         if (!item) return null;
-        const key = `${item.item_id}-${animationClass}`; 
-
-        const handleError = () => {
-            console.error(`⚠️ Error cargando medio, saltando...`);
-            if (!animationClass.includes('fadeOut')) nextItem();
-        };
-
         const content = item.type === 'video' ? (
             <video 
-                src={item.url} 
-                autoPlay 
-                muted={true}
-                playsInline
+                src={item.url} autoPlay muted={true} playsInline
                 onEnded={!animationClass.includes('fadeOut') ? nextItem : undefined} 
-                onError={handleError}
                 style={styles.mediaFull} 
             />
         ) : (
-            <img 
-                src={item.url} 
-                style={styles.mediaFull} 
-                alt="content" 
-                onError={handleError} 
-            />
+            <img src={item.url} style={styles.mediaFull} alt="content" />
         );
-
-        return (
-            <div key={key} style={{...styles.layer, animation: animationClass}}>
-                {content}
-            </div>
-        );
+        return <div key={`${item.item_id}-${animationClass}`} style={{...styles.layer, animation: animationClass}}>{content}</div>;
     };
 
-    // --- PANTALLA DE INICIO (INTERACCIÓN USUARIO) ---
-    // SOLO se muestra si NO se ha interactuado Y ya cargó algo (para no tapar el loading)
+    // --- UI STATES ---
+
     if (!hasInteracted && status !== 'loading') {
         return (
             <div onClick={enterFullscreenAndWakeLock} style={styles.startOverlay}>
                 <div style={styles.startBox}>
                     <Maximize size={80} color="#3b82f6" />
                     <h1>Iniciar TV</h1>
-                    <p>Clic para Pantalla Completa y Sonido</p>
-                    <p style={{fontSize:'12px', color:'#94a3b8', marginTop: '10px'}}>Estado actual: {status}</p>
+                    <p>Clic para Pantalla Completa</p>
                 </div>
             </div>
         );
     }
 
-    // --- VISTAS DE ESTADO ---
-    if (status === 'loading') return <div style={styles.containerBlack}><Loader size={50} className="spin" color="#3b82f6"/><p style={{marginTop:20, color:'#94a3b8'}}>Iniciando sistema...</p><style>{`.spin { animation: spin 2s infinite linear; } @keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
+    if (status === 'loading') return <div style={styles.containerBlack}><Loader size={50} className="spin" color="#3b82f6"/></div>;
     
-    if (status === 'offline') return (
-        <div style={styles.containerError}>
-            <WifiOff size={80} color="white"/>
-            <h1>Sin Conexión</h1>
-            <p>{errorMsg}</p>
-            <button onClick={() => window.location.reload()} style={styles.btnRetry}>Reintentar</button>
-        </div>
-    );
-    
-    if (status === 'pairing') return (
-        <div style={styles.containerPairing}>
-            <div style={styles.codeBox}>
-                <p style={{margin:0, color:'#94a3b8', fontSize:'20px'}}>Código de Vinculación:</p>
-                <h1 style={styles.bigCode}>{pairingCode}</h1>
-                <div style={{display:'flex', alignItems:'center', gap:'10px', justifyContent:'center'}}>
-                    <Loader size={20} className="spin"/> <span style={{fontSize:'14px', color:'#cbd5e1'}}>Esperando al administrador...</span>
-                </div>
+    // PANTALLA DE SUSPENDIDO (Ahora sale automáticamente)
+    if (status === 'suspended') return (
+        <div style={styles.containerBlack}>
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '40px', borderRadius: '50%', marginBottom: '30px' }}>
+                <Lock size={80} color="#ef4444" />
             </div>
-            <style>{`.spin { animation: spin 2s infinite linear; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <h1 style={{ color: 'white', margin: '0 0 15px 0', fontSize: '32px' }}>Servicio Suspendido</h1>
+            <p style={{ color: '#9ca3af', fontSize: '18px', maxWidth: '600px', textAlign: 'center' }}>
+                {errorMsg}
+            </p>
+            <p style={{ position: 'absolute', bottom: '30px', color: '#334155', fontSize: '12px' }}></p>
         </div>
     );
     
-    if (status === 'empty') return <div style={styles.containerBlack}><CloudOff size={60} color="#64748b"/><h2>Pantalla Vinculada</h2><p style={{color:'#64748b'}}>Esta pantalla no tiene contenido asignado.</p></div>;
+    if (status === 'offline') return <div style={styles.containerError}><WifiOff size={80} color="white"/><h1>Sin Conexión</h1><button onClick={() => window.location.reload()} style={styles.btnRetry}>Reconectar</button></div>;
+    
+    if (status === 'pairing') return <div style={styles.containerPairing}><div style={styles.codeBox}><p style={{color:'#94a3b8'}}>Código:</p><h1 style={styles.bigCode}>{pairingCode}</h1><Loader size={20} className="spin"/></div><style>{`.spin { animation: spin 2s infinite linear; }`}</style></div>;
+    
+    if (status === 'empty') return <div style={styles.containerBlack}><CloudOff size={60} color="#64748b"/><h2>Sin Contenido</h2></div>;
 
-    // --- REPRODUCTOR (PLAYING) ---
     if (status === 'playing') {
         return (
             <div style={styles.playerContainer}>
                 {renderMedia(activePlaylist[currentIndex], isTransitioning ? 'fadeIn 1s forwards' : '')}
                 {isTransitioning && previousIndex !== null && renderMedia(activePlaylist[previousIndex], 'fadeOut 1s forwards')}
-                
-                <style>{`
-                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-                    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-                `}</style>
+                <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }`}</style>
             </div>
         );
     }
     
-    return <div style={styles.containerBlack}><AlertCircle color="red"/><p>Estado desconocido</p></div>;
+    return null;
 }
 
 const styles = {
     startOverlay: { position: 'fixed', inset: 0, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 9999 },
     startBox: { textAlign: 'center', color: 'white', display:'flex', flexDirection:'column', alignItems:'center', gap:'20px' },
-    
     containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection:'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
     codeBox: { background: 'rgba(255,255,255,0.05)', padding: '40px 60px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' },
     bigCode: { fontSize: '100px', margin: '10px 0', letterSpacing: '8px', fontWeight: '800', color: '#3b82f6' },
-    
     containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap:'20px' },
-    btnRetry: { background:'white', color:'#ef4444', border:'none', padding:'10px 20px', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', fontSize:'16px' },
-    
+    btnRetry: { background:'white', color:'#ef4444', border:'none', padding:'10px 20px', borderRadius:'8px', cursor:'pointer', fontWeight:'bold' },
     containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color:'white' },
-    
     playerContainer: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'black', overflow: 'hidden' },
     layer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
     mediaFull: { width: '100%', height: '100%', objectFit: 'contain' },

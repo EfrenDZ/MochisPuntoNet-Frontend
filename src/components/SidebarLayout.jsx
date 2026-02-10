@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, LogOut, Menu, X } from 'lucide-react';
+// 1. Agregamos 'Briefcase' para usarlo en Clientes
+import { LayoutDashboard, Users, LogOut, Menu, X, Briefcase } from 'lucide-react';
+
+import logoMochis from '../assets/mochis_punto_net_logo.png';
 
 // ==========================================
-// 1. ESTILOS CSS RESPONSIVE
+// ESTILOS CSS
 // ==========================================
 const STYLES = `
-  /* --- BASE DE LA PAGINA --- */
   .layout-container {
     display: flex;
     flex-direction: column;
@@ -15,51 +17,60 @@ const STYLES = `
     font-family: 'Inter', sans-serif;
   }
 
-  /* --- HEADER --- */
   .top-header {
     background-color: #ffffff;
     border-bottom: 1px solid #e5e7eb;
     height: 64px;
-    position: sticky;
+    
+    /* Necesario para que el menú centrado se posicione respecto a este header */
+    position: sticky; 
     top: 0;
     z-index: 50;
+
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 40px; /* Padding de escritorio */
+    justify-content: space-between; /* Separa Logo (izq) y Logout (der) */
+    padding: 0 40px;
   }
 
   .logo-area {
     display: flex;
     align-items: center;
     gap: 10px;
+    cursor: pointer;
+    z-index: 20; /* Aseguramos que el logo quede por encima si la pantalla se achica mucho */
   }
 
-  /* --- NAVEGACIÓN DESKTOP --- */
+  /* --- NAVEGACIÓN DESKTOP CENTRADA --- */
   .desktop-nav {
     display: flex;
     align-items: center;
     gap: 8px;
+    
+    /* TRUCO PARA CENTRADO PERFECTO */
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   .desktop-actions {
     display: flex;
     align-items: center;
+    z-index: 20; /* Aseguramos que el botón salir quede accesible */
   }
 
-  /* --- BOTÓN HAMBURGUESA (MÓVIL) --- */
   .mobile-menu-btn {
-    display: none; /* Oculto en escritorio */
+    display: none;
     background: none;
     border: none;
     cursor: pointer;
     color: #374151;
     padding: 8px;
+    z-index: 20;
   }
 
-  /* --- MENÚ MÓVIL DESPLEGABLE --- */
   .mobile-menu-dropdown {
-    display: none; /* Oculto por defecto */
+    display: none;
     flex-direction: column;
     background: white;
     border-bottom: 1px solid #e5e7eb;
@@ -82,7 +93,6 @@ const STYLES = `
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* --- ITEMS DEL MENÚ --- */
   .nav-item {
     display: flex;
     align-items: center;
@@ -107,7 +117,6 @@ const STYLES = `
     font-weight: 600;
   }
 
-  /* Logout button style */
   .logout-btn {
     display: flex;
     align-items: center;
@@ -123,7 +132,6 @@ const STYLES = `
     background-color: #fef2f2;
   }
 
-  /* --- CONTENIDO PRINCIPAL --- */
   .main-content {
     flex: 1;
     padding: 32px 40px;
@@ -132,33 +140,19 @@ const STYLES = `
     margin: 0 auto;
   }
 
-  /* =========================================
-     RESPONSIVE QUERY (CELULARES Y TABLETS)
-     ========================================= */
   @media (max-width: 768px) {
-    .top-header {
-      padding: 0 20px; /* Menos padding en móvil */
-    }
+    .top-header { padding: 0 20px; }
     
-    .desktop-nav, .desktop-actions {
-      display: none; /* Ocultar menú normal */
-    }
-
-    .mobile-menu-btn {
-      display: block; /* Mostrar botón hamburguesa */
-    }
-
-    .main-content {
-      padding: 20px; /* Menos padding en contenido */
-    }
+    /* En móvil ocultamos el menú centrado y las acciones de escritorio */
+    .desktop-nav, .desktop-actions { display: none; }
+    .mobile-menu-btn { display: block; }
+    .main-content { padding: 20px; }
     
-    /* Ajustes para items en móvil */
     .nav-item {
-      padding: 12px 16px; /* Más área de toque */
-      border-radius: 8px; /* Menos redondeado en lista vertical */
+      padding: 12px 16px;
+      border-radius: 8px;
       margin-bottom: 5px;
     }
-    
     .logout-btn {
       margin-top: 10px;
       border-top: 1px solid #f3f4f6;
@@ -169,7 +163,7 @@ const STYLES = `
 `;
 
 // ==========================================
-// 2. COMPONENTE REACT
+// COMPONENTE REACT
 // ==========================================
 
 export default function MainLayout({ children }) {
@@ -177,15 +171,28 @@ export default function MainLayout({ children }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // 2. Definimos los iconos diferentes aquí
   const menuItems = [
-    { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/dashboard' },
-    { icon: <Users size={18} />, label: 'Clientes', path: '/clients' },
-    { icon: <Users size={18} />, label: 'Equipo', path: '/users' },
+    { 
+      icon: <LayoutDashboard size={18} />, 
+      label: 'Dashboard', 
+      path: '/dashboard' 
+    },
+    { 
+      icon: <Briefcase size={18} />, // Icono de Maletín para Clientes
+      label: 'Clientes', 
+      path: '/clients' 
+    },
+    { 
+      icon: <Users size={18} />,     // Icono de Usuarios para Equipo
+      label: 'Equipo', 
+      path: '/users' 
+    },
   ];
 
   const handleNavigation = (path) => {
     navigate(path);
-    setIsMobileMenuOpen(false); // Cerrar menú al navegar en móvil
+    setIsMobileMenuOpen(false);
   };
 
   const handleLogout = () => {
@@ -197,16 +204,18 @@ export default function MainLayout({ children }) {
     <div className="layout-container">
       <style>{STYLES}</style>
 
-      {/* HEADER FIJO */}
       <header className="top-header">
         
         {/* LOGO */}
-        <div className="logo-area">
-          <div style={{ width: '28px', height: '28px', backgroundColor: '#3b82f6', borderRadius: '6px' }}></div>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>Mochis.Net</h2>
+        <div className="logo-area" onClick={() => navigate('/dashboard')}>
+           <img 
+             src={logoMochis} 
+             alt="Mochis.Net Logo" 
+             style={{ height: '40px', objectFit: 'contain' }} 
+           />
         </div>
 
-        {/* NAVEGACIÓN ESCRITORIO (Se oculta en móvil via CSS) */}
+        {/* NAVEGACIÓN ESCRITORIO (CENTRADA ABSOLUTAMENTE) */}
         <nav className="desktop-nav">
           {menuItems.map((item) => (
             <div 
@@ -220,7 +229,7 @@ export default function MainLayout({ children }) {
           ))}
         </nav>
 
-        {/* LOGOUT ESCRITORIO */}
+        {/* LOGOUT */}
         <div className="desktop-actions">
           <div className="logout-btn" onClick={handleLogout}>
             <LogOut size={18} />
@@ -228,7 +237,7 @@ export default function MainLayout({ children }) {
           </div>
         </div>
 
-        {/* BOTÓN HAMBURGUESA (Solo visible en móvil) */}
+        {/* MÓVIL */}
         <button 
           className="mobile-menu-btn" 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -237,7 +246,7 @@ export default function MainLayout({ children }) {
         </button>
       </header>
 
-      {/* MENÚ DESPLEGABLE MÓVIL */}
+      {/* MENÚ MÓVIL */}
       <div className={`mobile-menu-dropdown ${isMobileMenuOpen ? 'open' : ''}`}>
         {menuItems.map((item) => (
           <div 
@@ -255,7 +264,6 @@ export default function MainLayout({ children }) {
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
       <main className="main-content">
         {children}
       </main>

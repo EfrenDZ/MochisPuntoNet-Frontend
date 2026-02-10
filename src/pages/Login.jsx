@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+// Usamos el icono de usuario y otros
+import { Lock, User, ArrowRight } from 'lucide-react';
+
+// 1. IMPORTAMOS EL LOGO
+import logoMochis from '../assets/mochis_punto_net_logo.png';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -13,7 +17,11 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { 
+          email: username, 
+          password 
+      });
+
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       navigate('/dashboard');
@@ -29,24 +37,29 @@ export default function Login() {
       <div style={cardStyle}>
         {/* HEADER */}
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={logoStyle}>MN</div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#111827', margin: '10px 0 5px 0' }}>Bienvenido de nuevo</h1>
-          <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Ingresa a tu cuenta de Mochis.Net</p>
+          
+          {/* 2. LOGO AQUÍ (Reemplazamos el cuadro 'MN') */}
+          <img 
+            src={logoMochis} 
+            alt="Mochis.Net Logo" 
+            style={logoStyle} 
+          />
+
         </div>
 
         {/* FORMULARIO */}
         <form onSubmit={handleLogin}>
           
           <div style={{ marginBottom: '20px' }}>
-            <label style={labelStyle}>Correo Electrónico</label>
+            <label style={labelStyle}>Usuario</label>
             <div style={inputContainer}>
-              <Mail size={18} color="#9ca3af" />
+              <User size={18} color="#9ca3af" />
               <input 
-                type="email" 
+                type="text"
                 required 
-                placeholder="admin@empresa.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nombre.usuario"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 style={inputStyle}
               />
             </div>
@@ -76,23 +89,19 @@ export default function Login() {
             {!loading && <ArrowRight size={18} />}
           </button>
         </form>
-
-        <p style={{ textAlign: 'center', fontSize: '12px', color: '#9ca3af', marginTop: '30px' }}>
-          © 2026 Mochis.Net - Digital Signage
-        </p>
       </div>
     </div>
   );
 }
 
-// --- ESTILOS MODERNOS ---
+// --- ESTILOS ---
 const containerStyle = {
   height: '100vh',
   width: '100vw',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)', // Gradiente Azul-Cyan
+  background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)', 
   fontFamily: '"Inter", sans-serif'
 };
 
@@ -105,18 +114,13 @@ const cardStyle = {
   maxWidth: '400px'
 };
 
+// 3. ESTILO DEL LOGO ACTUALIZADO (Para imagen)
 const logoStyle = {
-  width: '50px',
-  height: '50px',
-  backgroundColor: '#4f46e5',
-  color: 'white',
-  borderRadius: '12px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontWeight: 'bold',
-  fontSize: '20px',
-  margin: '0 auto'
+  width: '250px',      // Ajusta este tamaño según necesites
+  height: 'auto',      // Mantiene la proporción
+  objectFit: 'contain',
+  display: 'block',
+  margin: '0 auto 15px auto' // Centrado horizontal y margen inferior
 };
 
 const labelStyle = {
