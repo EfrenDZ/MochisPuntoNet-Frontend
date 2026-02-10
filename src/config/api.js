@@ -1,49 +1,59 @@
-// src/config/api.js
 import axios from 'axios';
 
+// ============================================================
+// 1. CONFIGURACIÓN BÁSICA
+// Usamos una variable de entorno, pero si falla, usamos la URL directa.
+// ============================================================
+const API_URL = import.meta.env.VITE_API_URL || 'https://mochispuntonet-backend.onrender.com/api';
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL, // Lee la variable del .env
+    baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json'
     }
 });
 
 // ============================================================
-// 1. REQUEST INTERCEPTOR (Lo que ya tenías)
-// Inyecta el token en cada petición que sale hacia el servidor
+// 2. REQUEST INTERCEPTOR (ENVIAR EL TOKEN)
+// Antes de que la petición salga, le pegamos el token si existe.
 // ============================================================
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
     }
-    return config;
-}, (error) => {
-    return Promise.reject(error);
-});
+);
 
 // ============================================================
-// 2. RESPONSE INTERCEPTOR (LO NUEVO)
-// Escucha las respuestas. Si recibe un error 401 (No autorizado),
-// significa que el token venció o es falso -> Te saca al Login.
+// 3. RESPONSE INTERCEPTOR (MANEJAR ERRORES DE SESIÓN)
+// Si el servidor responde 401 (Token vencido o inválido),
+// limpiamos todo y mandamos al usuario al Login.
 // ============================================================
 api.interceptors.response.use(
     (response) => {
-        // Si la respuesta es correcta, la deja pasar sin cambios
+        // Si todo sale bien, dejamos pasar la respuesta
         return response;
     },
     (error) => {
-        // Si el error es 401 (Unauthorized)
+        // Si el servidor nos rechaza (401 Unauthorized)
         if (error.response && error.response.status === 401) {
-            console.warn('Sesión expirada o token inválido. Cerrando sesión...');
+            console.warn('Acceso denegado o sesión expirada. Cerrando sesión...');
             
-            // 1. Limpiamos el almacenamiento local
+            // 1. Limpieza de datos locales
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             
-            // 2. Forzamos la recarga hacia el Login
-            // Usamos window.location en vez de navigate porque este archivo no es un componente React
-            window.location.href = '/';
+            // 2. Redirección forzada al Login
+            // Usamos window.location.href para asegurar una recarga limpia
+            if (window.location.pathname !== '/') {
+                window.location.href = '/';
+            }
         }
         return Promise.reject(error);
     }
