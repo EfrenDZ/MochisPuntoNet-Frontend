@@ -6,23 +6,25 @@ import MediaManager from './pages/MediaManager';
 import Clients from './pages/Clients';
 import UsersPage from './pages/Users';
 import ClientDetails from './pages/ClientDetails';
-import MainLayout from './components/MainLayout'; // Asumo que tienes este layout
 
-// 1. GUARDIÁN DE RUTAS PRIVADAS (Solo con Token)
+// IMPORTANTE: Asegúrate de haber creado este archivo en src/components/
+import SidebarLayout from './components/SidebarLayout'; 
+
+// ==========================================
+// 1. GUARDIÁN DE RUTAS PRIVADAS
+// ==========================================
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  if (!token) {
-    return <Navigate to="/" replace />;
-  }
+  if (!token) return <Navigate to="/" replace />;
   return children;
 };
 
-// 2. GUARDIÁN DE LOGIN (Si ya tienes token, no entras aquí)
+// ==========================================
+// 2. GUARDIÁN DE LOGIN
+// ==========================================
 const RedirectIfAuthenticated = ({ children }) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  if (token) return <Navigate to="/dashboard" replace />;
   return children;
 };
 
@@ -31,63 +33,62 @@ function App() {
     <BrowserRouter>
       <Routes>
         
-        {/* --- ZONA PÚBLICA (LOGIN) --- */}
+        {/* --- 1. LOGIN (Público, pero te saca si ya entraste) --- */}
         <Route path="/" element={
           <RedirectIfAuthenticated>
             <Login />
           </RedirectIfAuthenticated>
         } />
 
-        {/* --- ZONA PÚBLICA (TV PLAYER) --- */}
-        {/* ¡IMPORTANTE! Esta ruta va FUERA de ProtectedRoute */}
-        {/* Así la TV puede entrar sin iniciar sesión */}
+        {/* --- 2. TV PLAYER (TOTALMENTE PÚBLICO) --- */}
+        {/* No tiene SidebarLayout (pantalla completa) y No tiene ProtectedRoute */}
         <Route path="/app" element={<TVPlayer />} />
 
 
-        {/* --- ZONA PRIVADA (ADMINISTRACIÓN) --- */}
-        {/* Todo lo de aquí abajo requiere Login */}
+        {/* --- 3. ZONA PRIVADA CON MENÚ (Admin) --- */}
+        {/* Aquí usamos SidebarLayout para que aparezca el menú lateral/superior */}
         
         <Route path="/dashboard" element={
           <ProtectedRoute>
-            <MainLayout>
+            <SidebarLayout>
               <Dashboard />
-            </MainLayout>
+            </SidebarLayout>
           </ProtectedRoute>
         } />
         
         <Route path="/media" element={
           <ProtectedRoute>
-            <MainLayout>
+            <SidebarLayout>
               <MediaManager />
-            </MainLayout>
+            </SidebarLayout>
           </ProtectedRoute>
         } />
         
         <Route path="/clients" element={
           <ProtectedRoute>
-            <MainLayout>
+            <SidebarLayout>
               <Clients />
-            </MainLayout>
+            </SidebarLayout>
           </ProtectedRoute>
         } />
 
         <Route path="/clients/:id" element={
           <ProtectedRoute>
-            <MainLayout>
+            <SidebarLayout>
               <ClientDetails />
-            </MainLayout>
+            </SidebarLayout>
           </ProtectedRoute>
         } />
 
         <Route path="/users" element={
           <ProtectedRoute>
-            <MainLayout>
+            <SidebarLayout>
               <UsersPage />
-            </MainLayout>
+            </SidebarLayout>
           </ProtectedRoute>
         } />
 
-        {/* Cualquier ruta desconocida manda al Login */}
+        {/* CATCH-ALL */}
         <Route path="*" element={<Navigate to="/" replace />} />
         
       </Routes>
