@@ -19,11 +19,10 @@ import {
     Tv, Smartphone, Plus, X, Layers, Play, Trash2, Lock, Unlock, 
     AlertTriangle, CheckCircle, Link as LinkIcon, Unlink, Loader, 
     Save, Clock, Edit2, Folder, FolderPlus, Monitor, GripVertical,
-    Grid, Image as ImageIcon, Maximize2, ArrowLeft
+    Grid, Image as ImageIcon, Maximize2, ArrowLeft, Film
 } from 'lucide-react';
 
-// === ESTILOS CSS (Mantenemos los de Layout, Board y Modal Principal) ===
-// NOTA: He eliminado los estilos de .library-modal, .media-card, etc., porque ya están en el componente hijo.
+// === ESTILOS CSS MEJORADOS ===
 const STYLES = `
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -100,16 +99,17 @@ const STYLES = `
     .preview-box.vertical { aspect-ratio: 9/16; max-width: 280px; }
     .preview-box:hover { transform: scale(1.02); border-color: #3b82f6; }
     .preview-content { width: 100%; height: 100%; object-fit: contain; }
-    .playlist-row { display: flex; align-items: center; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; gap: 12px; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-    .playlist-row:hover { border-color: #3b82f6; background: #f8fafc; }
-    .row-img { width: 60px; height: 40px; object-fit: cover; border-radius: 4px; background: #000; flex-shrink: 0; display: block; }
-    .row-img-placeholder { width: 60px; height: 40px; border-radius: 4px; background: #0f172a; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .playlist-row { display: flex; align-items: center; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 15px; margin-bottom: 8px; gap: 15px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .playlist-row:hover { border-color: #3b82f6; background: #f8fafc; transform: translateX(2px); }
+    .row-img { width: 70px; height: 45px; object-fit: cover; border-radius: 6px; background: #000; flex-shrink: 0; display: block; border: 1px solid #e2e8f0; }
+    .row-img-placeholder { width: 70px; height: 45px; border-radius: 6px; background: #1e293b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .row-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-    .row-title-text { font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row-index-text { font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase; }
-    .duration-wrapper { display: flex; align-items: center; gap: 5px; background: #f1f5f9; padding: 2px 6px; border-radius: 8px; border: 1px solid #e2e8f0; height: auto; }
-    .duration-input { width: 24px; background: transparent; border: none; font-weight: 700; text-align: center; color: #334155; outline: none; font-size: 12px; }
-    .btn-icon-delete { background: transparent; border: 1px solid #e2e8f0; color: #94a3b8; width: 24px; height: 24px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .row-title-text { font-size: 14px; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+    .row-index-text { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+    .duration-wrapper { display: flex; align-items: center; gap: 6px; background: white; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; height: 32px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+    .duration-input { width: 30px; background: transparent; border: none; font-weight: 700; text-align: center; color: #334155; outline: none; font-size: 13px; }
+    .duration-locked { display: flex; align-items: center; gap: 6px; background: #e2e8f0; color: #64748b; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; border: 1px solid #cbd5e1; height: 32px; letter-spacing: 0.5px; }
+    .btn-icon-delete { background: white; border: 1px solid #e2e8f0; color: #94a3b8; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
     .btn-icon-delete:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
     .modern-modal.alert-box { width: 400px; padding: 30px; border-radius: 20px; background: white; text-align: center; position: relative; z-index: 301; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
     .alert-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
@@ -138,8 +138,6 @@ const STYLES = `
     .btn-add-overlay { position: absolute; inset: 0; background: rgba(59, 130, 246, 0.8); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; color: white; font-weight: 700; gap: 5px; }
     .media-card:hover .btn-add-overlay { opacity: 1; }
     .media-type-badge { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; z-index: 2; }
-    .tv-limit-box { width: 100%; max-width: 600px; max-height: 50vh; aspect-ratio: 16/9; background: #000; border: 2px solid #334155; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-    .tv-limit-label { position: absolute; top: 10px; right: 10px; color: rgba(255,255,255,0.3); font-size: 10px; font-weight: 700; border: 1px solid rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; z-index: 5; }
     .preview-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 3000; display: flex; justify-content: center; align-items: center; }
     .tv-frame { box-shadow: 0 0 40px #3b82f6, inset 0 0 20px #3b82f6; border: 4px solid #3b82f6; background: black; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .tv-frame.horizontal { width: 90vw; max-width: 1400px; aspect-ratio: 16/9; }
@@ -158,8 +156,7 @@ const STYLES = `
     }
 `;
 
-// ... [COMPONENTES AUXILIARES: CustomAlert, ToastNotification, SortablePlaylistItem, GroupCard, ScreenItem, SortableRow] ...
-// (Mantenemos estos componentes exactamente igual, no los repito para no saturar, pero deben estar aquí)
+// === COMPONENTES AUXILIARES ===
 const CustomAlert = ({ config, onClose }) => {
     if (!config.isOpen) return null;
     const themes = { danger: { icon: <Trash2 size={24}/>, className: 'alert-danger' }, warning: { icon: <AlertTriangle size={24}/>, className: 'alert-warning' }, info: { icon: <CheckCircle size={24}/>, className: 'alert-info' } };
@@ -191,16 +188,58 @@ const ToastNotification = ({ visible, message, type }) => {
     return <div className={`toast-notification ${type}`}>{type === 'error' ? <AlertTriangle size={18}/> : <CheckCircle size={18}/>}<span>{message}</span></div>;
 };
 
+// ============ AQUI ESTA LA LOGICA DEL VIDEO Y DISEÑO MEJORADO ============
 const SortablePlaylistItem = memo(({ item, onRemove, onUpdateDuration, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.item_id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, touchAction: 'none', zIndex: isDragging ? 999 : 'auto' };
+    
+    // Detectamos si es video
+    const isVideo = item.type === 'video';
+
     return (
         <div ref={setNodeRef} style={style} className="playlist-row">
-            <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#cbd5e1', display:'flex' }}><GripVertical size={16}/></div>
-            {item.type === 'video' ? (<div className="row-img-placeholder"><Play size={16} color="white"/></div>) : (<img src={item.url} alt="media" className="row-img"/>)}
-            <div className="row-info"><span className="row-title-text">{item.type === 'video' ? 'Video Clip' : 'Imagen'}</span><span className="row-index-text">Posición #{index + 1}</span></div>
-            {item.type !== 'video' && (<div className="duration-wrapper"><Clock size={12} style={{marginRight: 4, color: '#64748b'}}/><input type="number" value={item.custom_duration || 10} onChange={e => onUpdateDuration(item.item_id, e.target.value)} className="duration-input"/><span style={{fontSize: 10, color: '#64748b'}}>s</span></div>)}
-            <button onClick={() => onRemove(item.item_id)} className="btn-icon-delete"><Trash2 size={14}/></button>
+            <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#94a3b8', display:'flex', padding:'5px' }}>
+                <GripVertical size={20}/>
+            </div>
+            
+            {isVideo ? (
+                <div className="row-img-placeholder">
+                    <Film size={20} color="white"/>
+                </div>
+            ) : (
+                <img src={item.url} alt="media" className="row-img"/>
+            )}
+            
+            <div className="row-info">
+                <span className="row-title-text">
+                    {isVideo ? <Film size={14} className="text-blue-500"/> : <ImageIcon size={14} className="text-green-500"/>}
+                    {isVideo ? 'Video Clip' : 'Imagen'}
+                </span>
+                <span className="row-index-text">Posición #{index + 1}</span>
+            </div>
+            
+            {isVideo ? (
+                /* MOSTRAR CANDADO SI ES VIDEO */
+                <div className="duration-locked">
+                    <Lock size={12}/> <span>AUTO</span>
+                </div>
+            ) : (
+                /* MOSTRAR INPUT SI ES IMAGEN */
+                <div className="duration-wrapper">
+                    <Clock size={14} style={{color: '#64748b'}}/>
+                    <input 
+                        type="number" 
+                        value={item.custom_duration || 10} 
+                        onChange={e => onUpdateDuration(item.item_id, e.target.value)} 
+                        className="duration-input"
+                    />
+                    <span style={{fontSize: 10, color: '#64748b', fontWeight:700}}>s</span>
+                </div>
+            )}
+            
+            <button onClick={() => onRemove(item.item_id)} className="btn-icon-delete">
+                <Trash2 size={16}/>
+            </button>
         </div>
     );
 });
@@ -263,8 +302,6 @@ export default function ClientDetails() {
     const [screensData, setScreensData] = useState([]);
     const [groups, setGroups] = useState([]);
     const [items, setItems] = useState({ "container-0": [] });
-    // availableMedia sigue siendo necesario para la vista rápida (las 5 últimas), 
-    // pero el modal ya gestiona su propia lista.
     const [availableMedia, setAvailableMedia] = useState([]);
     
     const [isEditMode, setIsEditMode] = useState(false);
@@ -307,7 +344,13 @@ export default function ClientDetails() {
         if (playlist.length !== original.length) changed = true;
         else {
             for (let i = 0; i < playlist.length; i++) {
-                if (playlist[i].item_id !== original[i].item_id || String(playlist[i].item_id).startsWith('temp-') || parseInt(playlist[i].custom_duration) !== parseInt(original[i].custom_duration)) { changed = true; break; }
+                // Comparamos ID, ORDEN (por índice) y DURACIÓN
+                if (playlist[i].item_id !== original[i].item_id || 
+                    String(playlist[i].item_id).startsWith('temp-') || 
+                    parseInt(playlist[i].custom_duration) !== parseInt(original[i].custom_duration)) { 
+                    changed = true; 
+                    break; 
+                }
             }
         }
         setHasUnsavedChanges(changed);
@@ -370,8 +413,10 @@ export default function ClientDetails() {
         try {
             const url = type === 'screen' ? (entity.group_id ? `/admin/groups/${entity.group_id}/playlist` : `/playlist/${entity.id}`) : `/admin/groups/${entity.id}/playlist`;
             const res = await api.get(url);
-            setPlaylist(res.data);
-            originalPlaylistRef.current = JSON.parse(JSON.stringify(res.data));
+            // Ordenar por display_order si el backend lo devuelve
+            const sorted = res.data.sort((a,b) => (a.display_order || 0) - (b.display_order || 0));
+            setPlaylist(sorted);
+            originalPlaylistRef.current = JSON.parse(JSON.stringify(sorted));
         } catch (e) { console.error(e); }
     };
 
@@ -413,17 +458,13 @@ export default function ClientDetails() {
     const handleLinkTV = async (e) => { e.preventDefault(); if (isCreating) return; setIsCreating(true); try { await api.post('/admin/screens/link', { screenId: selectedEntity.data.id, pairingCode: inputs.pairingCode }); fetchData(); showToast('Vinculado'); setSelectedEntity(prev => ({...prev, data: {...prev.data, status:'online'}})); } catch(e){ console.error(e); showAlert('danger', 'Error', 'Código inválido'); } finally { setIsCreating(false); } };
     const handleUnlinkTV = () => { showAlert('danger', 'Desvincular', 'La pantalla dejará de recibir contenido. ¿Seguro?', async () => { closeAlert(); try { await api.post('/admin/screens/unlink', { screenId: selectedEntity.data.id }); fetchData(); showToast('Desvinculado correctamente'); setSelectedEntity(prev => ({...prev, data: {...prev.data, status:'offline'}})); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo desvincular'); } }); };
     
-    // Función para subir archivos en la vista rápida (las 5 últimas)
     const handleFileUploadQuick = async (e) => {
         const file = e.target.files[0]; if(!file) return; setLoaders(p => ({...p, uploading: true})); const fd = new FormData(); const safeId = id ? String(id) : 'general'; fd.append('clientId', safeId); fd.append('file', file);
         try { await api.post('/media/upload', fd, { headers: { "Content-Type": undefined } }); const res = await api.get(`/media/library?clientId=${id}`); setAvailableMedia(res.data); showToast('Archivo subido'); } catch(e) { const msg = e.response?.data?.error || 'Fallo al subir'; showAlert('danger', 'Error', msg); } finally { setLoaders(p => ({...p, uploading: false})); e.target.value = null; }
     };
     
-    // Función para agregar a playlist desde el modal o vista rápida
     const handleAddToPlaylistLocal = (mediaItem) => { 
         if(!selectedEntity) return; 
-        // Si viene del modal nuevo, ya es un objeto completo
-        // Si viene de la vista rápida, es un ID, así que buscamos el objeto
         let fullMedia = mediaItem;
         if (typeof mediaItem === 'string' || typeof mediaItem === 'number') {
              fullMedia = availableMedia.find(m => m.id === mediaItem);
@@ -436,30 +477,82 @@ export default function ClientDetails() {
             media_id: fullMedia.id, 
             url: fullMedia.url, 
             type: fullMedia.type, 
-            custom_duration: 10, 
+            custom_duration: fullMedia.type === 'video' ? 0 : 10, // 0 si es video
             display_order: playlist.length 
         }; 
         setPlaylist(prev => [...prev, newItem]); 
         showToast("Añadido a Playlist"); 
     };
 
+    // ============ AQUÍ ESTÁ LA SOLUCIÓN AL RESETEO ============
     const handleSaveAllChanges = async () => {
-        if (!selectedEntity || !hasUnsavedChanges) return; setLoaders(prev => ({...prev, saving: true}));
+        if (!selectedEntity || !hasUnsavedChanges) return; 
+        setLoaders(prev => ({...prev, saving: true}));
+        
         try {
-            const isGroup = selectedEntity.type === 'group'; const entityId = selectedEntity.data.id; const original = originalPlaylistRef.current; const current = playlist;
-            const origIds = new Set(original.map(i => i.item_id)); const currIds = new Set(current.filter(i=>!String(i.item_id).startsWith('temp-')).map(i => i.item_id));
+            const isGroup = selectedEntity.type === 'group'; 
+            const entityId = selectedEntity.data.id; 
+            const original = originalPlaylistRef.current; 
+            const current = playlist;
+            
+            // 1. Detectar eliminados
+            const currIds = new Set(current.filter(i=>!String(i.item_id).startsWith('temp-')).map(i => i.item_id));
             const toDelete = original.filter(i => !currIds.has(i.item_id)); 
-            const toAdd = current.filter(i => String(i.item_id).startsWith('temp-')); 
-            const toUpdate = current.filter(i => !String(i.item_id).startsWith('temp-') && original.find(o => o.item_id === i.item_id)?.custom_duration != i.custom_duration);
+            
             const promises = []; 
+            
+            // Ejecutar eliminaciones
             toDelete.forEach(item => promises.push(api.delete(`/playlist/${item.item_id}`))); 
-            toUpdate.forEach(item => promises.push(api.put(`/playlist/${item.item_id}`, { duration: parseInt(item.custom_duration) })));
-            toAdd.forEach(item => { const payload = { mediaId: item.media_id, duration: parseInt(item.custom_duration) }; if(isGroup) payload.groupId = entityId; else payload.screenId = entityId; promises.push(api.post('/playlist', payload)); });
+
+            // 2. Iterar sobre la playlist ACTUAL para guardar ORDEN Y NUEVOS
+            // Usamos un bucle forEach sobre 'current' para usar el INDEX como display_order
+            current.forEach((item, index) => {
+                const isNew = String(item.item_id).startsWith('temp-');
+                const isVideo = item.type === 'video';
+                
+                // Aseguramos que el video tenga duración 0 o la que venga
+                const durationToSend = isVideo ? 0 : parseInt(item.custom_duration);
+
+                if (isNew) {
+                    // CREAR: Enviamos mediaId, duration Y DISPLAY_ORDER
+                    const payload = { 
+                        mediaId: item.media_id, 
+                        duration: durationToSend,
+                        display_order: index // <--- CLAVE PARA QUE NO SE RESETEE
+                    }; 
+                    
+                    if(isGroup) payload.groupId = entityId; 
+                    else payload.screenId = entityId; 
+                    
+                    promises.push(api.post('/playlist', payload));
+                } else {
+                    // ACTUALIZAR: Enviamos SIEMPRE el update para asegurar el orden
+                    promises.push(api.put(`/playlist/${item.item_id}`, { 
+                        duration: durationToSend,
+                        display_order: index // <--- CLAVE PARA GUARDAR LA POSICIÓN
+                    }));
+                }
+            });
+            
             await Promise.all(promises);
-            const route = isGroup ? `/admin/groups/${entityId}/playlist` : `/playlist/${entityId}`; const freshRes = await api.get(route);
-            setPlaylist(freshRes.data); originalPlaylistRef.current = JSON.parse(JSON.stringify(freshRes.data)); 
-            setHasUnsavedChanges(false); showToast('Guardado correctamente');
-        } catch (e) { console.error(e); showAlert('danger', 'Error', 'Ocurrió un error al guardar.'); } finally { setLoaders(prev => ({...prev, saving: false})); }
+            
+            const route = isGroup ? `/admin/groups/${entityId}/playlist` : `/playlist/${entityId}`; 
+            const freshRes = await api.get(route);
+            // Ordenar lo que vuelve del servidor
+            const sorted = freshRes.data.sort((a,b) => (a.display_order || 0) - (b.display_order || 0));
+            
+            setPlaylist(sorted); 
+            originalPlaylistRef.current = JSON.parse(JSON.stringify(sorted)); 
+            
+            setHasUnsavedChanges(false); 
+            showToast('Guardado correctamente');
+
+        } catch (e) { 
+            console.error(e); 
+            showAlert('danger', 'Error', 'Ocurrió un error al guardar.'); 
+        } finally { 
+            setLoaders(prev => ({...prev, saving: false})); 
+        }
     };
 
     const findContainer = (id) => { if (id in items) return id; return Object.keys(items).find((key) => items[key].includes(id)); };
@@ -594,7 +687,7 @@ return (
                                 </DndContext>
                             </div>
                             
-                            {/* VISTA RÁPIDA DE BIBLIOTECA (SOLO 5 ÚLTIMOS) */}
+                            {/* VISTA RÁPIDA DE BIBLIOTECA */}
                             <div className="library-quick-view">
                                 <div className="library-header"><div className="library-title"><ImageIcon size={16} color="#64748b"/><span>Biblioteca Reciente</span><span style={{fontSize:'11px', color:'#94a3b8', fontWeight:'normal'}}>({availableMedia.length})</span></div><div style={{display:'flex', gap:'10px'}}><label className="btn-secondary" style={{padding:'6px 12px', fontSize:'12px', height:'auto'}}><Plus size={14}/> Subir<input type="file" hidden onChange={handleFileUploadQuick}/></label><button onClick={() => setIsLibraryOpen(true)} className="btn-view-all"><Grid size={14}/> Ver todo</button></div></div>
                                 <div className="quick-scroll-track">{availableMedia.slice(0, 5).map(m => (<div key={m.id} className="media-card" style={{minWidth:'120px', height:'100%'}} onClick={() => handleAddToPlaylistLocal(m.id)}><div className="media-card-thumb"><span className="media-type-badge">{m.type === 'video' ? 'VIDEO' : 'IMG'}</span>{m.type === 'video' ? <div className="video-overlay"><Play size={24} color="white" fill="white"/></div> : <img src={m.url} alt="media" />}<div className="btn-add-overlay"><Plus size={18}/></div></div><div className="media-card-footer">{m.name}</div></div>))}<div onClick={() => setIsLibraryOpen(true)} style={{minWidth:'100px', borderRadius:'10px', border:'2px dashed #cbd5e1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'#64748b', cursor:'pointer', gap:'5px', fontSize:'12px', fontWeight:'600'}}><Grid size={20}/>Ver todo</div></div>
@@ -607,12 +700,11 @@ return (
         
         {fullScreenPreview && <div className="preview-backdrop" onClick={() => setFullScreenPreview(false)}><div className={`tv-frame ${selectedEntity.data.orientation === 'vertical' ? 'vertical' : 'horizontal'}`} onClick={e => e.stopPropagation()}><button className="btn-close-preview" onClick={() => setFullScreenPreview(false)}><ArrowLeft size={18}/> Salir</button>{getActivePreviewContent() ? (getActivePreviewContent().type === 'video' ? <video src={getActivePreviewContent().url} autoPlay muted loop controls style={{width:'100%', height:'100%', objectFit:'contain'}} /> : <img src={getActivePreviewContent().url} alt="preview" style={{width:'100%', height:'100%', objectFit:'contain'}} />) : (<div style={{color:'white'}}>Sin contenido</div>)}</div></div>}
         
-        {/* MODAL DE BIBLIOTECA COMPLETO IMPORTADO */}
         <MediaLibraryModal 
             isOpen={isLibraryOpen} 
             onClose={() => setIsLibraryOpen(false)} 
             clientId={id} 
-            clientName={client?.name} // <--- NUEVA PROP: Pasamos el nombre real
+            clientName={client?.name}
             onSelect={handleAddToPlaylistLocal} 
             showToast={showToast}
         />

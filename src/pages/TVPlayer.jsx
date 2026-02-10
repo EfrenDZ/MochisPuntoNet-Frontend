@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../config/api';
 import { WifiOff, CloudOff, Loader, Maximize, Lock } from 'lucide-react';
 
+// --- HACK: VIDEO INVISIBLE PARA EVITAR SUSPENSIÓN ---
+// Este es un video MP4 válido de 1 pixel, negro y mudo.
+// Al reproducirse en bucle, la TV cree que es contenido multimedia activo y no se duerme.
+const NO_SLEEP_VIDEO_BASE64 = "data:video/mp4;base64,AAAAHGZ0eXPCisAAAAACdatzbW9vdgAAADxtdmhkAAAAAAAAAAAAAAAAAAABAAAAAAABAAABAAAAAAHAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAHBt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAChtZGlhAAAAIG1kaGQAAAAAAAAAAAAAAAAAIAAAAAEAAAAVAFAAAAAAAxBWhZGxyAAAAAAAAAAZdmNocmwAAAAXPZnJsAAAAIG1kaGQAAAAAAAAAAAAAAAAAIAAAAAEAAAAVAFAAAAAAAxBWhZGxyAAAAAAAAAAZdmNocmwAAAAXPZnJs";
+
 export default function TVPlayer() {
     const [status, setStatus] = useState('loading'); 
     const [pairingCode, setPairingCode] = useState(null);
@@ -30,30 +35,46 @@ export default function TVPlayer() {
         const token = localStorage.getItem('device_token');
         if (token) {
             checkForUpdates();
-            // REVISAR CADA 30 SEGUNDOS (Puedes bajarlo a 10s si quieres reacción más rápida)
             updateIntervalRef.current = setInterval(checkForUpdates, 30000);
         } else {
             startPairingProcess();
         }
 
+        // Listener para recuperar el WakeLock si la TV minimiza y maximiza el navegador
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && hasInteracted) {
+                requestWakeLock();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
             clearTimeout(timerRef.current);
             clearInterval(pollRef.current);
             clearInterval(updateIntervalRef.current);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             if (wakeLockRef.current) wakeLockRef.current.release();
         };
-    }, []);
+    }, [hasInteracted]);
 
-    // --- WAKE LOCK & FULLSCREEN ---
+    // --- WAKE LOCK & FULLSCREEN REFORZADO ---
+    const requestWakeLock = async () => {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLockRef.current = await navigator.wakeLock.request('screen');
+                console.log("⚡ WakeLock activado");
+            } catch (err) {
+                console.warn("⚠️ No se pudo activar WakeLock:", err);
+            }
+        }
+    };
+
     const enterFullscreenAndWakeLock = async () => {
         setHasInteracted(true); 
         try {
             const elem = document.documentElement;
             if (elem.requestFullscreen) await elem.requestFullscreen();
-            
-            if ('wakeLock' in navigator) {
-                wakeLockRef.current = await navigator.wakeLock.request('screen');
-            }
+            await requestWakeLock();
         } catch (err) { console.warn("Fullscreen/WakeLock error", err); }
     };
 
@@ -81,9 +102,7 @@ export default function TVPlayer() {
         }));
     };
 
-    // ==========================================
-    // 🔍 CHECK FOR UPDATES (EL FIX CRÍTICO)
-    // ==========================================
+    // --- CHECK FOR UPDATES ---
     const checkForUpdates = async () => {
         try {
             const token = localStorage.getItem('device_token');
@@ -91,10 +110,8 @@ export default function TVPlayer() {
 
             const res = await api.get('/tv/playlist', { headers: { Authorization: `Bearer ${token}` } });
             
-            // SI LLEGAMOS AQUÍ, LA CUENTA ESTÁ ACTIVA
-            // Si antes estaba suspendida, la reactivamos:
             if (status === 'suspended' || status === 'offline') {
-                setStatus('loading'); // Breve loading para reiniciar el ciclo
+                setStatus('loading');
                 setErrorMsg('');
             }
 
@@ -114,7 +131,6 @@ export default function TVPlayer() {
                     setPlaylistHash(newHash);
                 }
             } else if (activePlaylist.length === 0 && serverData.length > 0) {
-                 // Caso borde: Se recuperó de suspensión pero el hash era igual (raro pero posible)
                  const readyPlaylist = await processPlaylist(serverData);
                  setActivePlaylist(readyPlaylist);
                  setStatus('playing');
@@ -123,35 +139,21 @@ export default function TVPlayer() {
         } catch (error) {
             console.error("Estado API Check:", error.response?.status);
 
-            // --- AQUÍ ESTÁ LA CORRECCIÓN ---
             if (error.response?.status === 403) {
                 const errorData = error.response.data;
-                
-                // DETECTAR SUSPENSIÓN
                 if (errorData.command === 'stop' || 
                    (errorData.error && errorData.error.toLowerCase().includes('suspendida'))) {
                     
-                    console.log("🔒 CUENTA SUSPENDIDA DETECTADA");
-                    
-                    // 1. Cortar loop inmediatamente
                     clearTimeout(timerRef.current);
-                    
-                    // 2. Vaciar playlist para forzar re-render
                     setActivePlaylist([]); 
                     setPendingPlaylist(null);
-                    
-                    // 3. Cambiar estado visual
                     setStatus('suspended');
                     setErrorMsg('Su servicio ha sido suspendido temporalmente.');
-                
                 } else {
-                    // Token inválido real
                     localStorage.removeItem('device_token');
                     window.location.reload();
                 }
             } else {
-                // Error de conexión (Internet se fue)
-                // NO borramos la playlist si es solo error de red, para que siga tocando lo que tiene en caché
                 if (activePlaylist.length === 0) {
                     setStatus('offline');
                 }
@@ -184,7 +186,7 @@ export default function TVPlayer() {
 
     // --- LOOP REPRODUCCIÓN ---
     const nextItem = () => {
-        if (activePlaylist.length === 0) return; // Freno de seguridad
+        if (activePlaylist.length === 0) return;
 
         setPreviousIndex(currentIndex);
         setIsTransitioning(true);
@@ -203,7 +205,7 @@ export default function TVPlayer() {
         }, 1000);
     };
 
-    // --- LÓGICA DE REPRODUCCIÓN (FIX DURACIÓN) ---
+    // --- EFFECT DE TIEMPO ---
     useEffect(() => {
         if (status !== 'playing' || activePlaylist.length === 0) return;
         
@@ -213,7 +215,6 @@ export default function TVPlayer() {
         console.log(`▶️ Reproduciendo: ${item.name} | Duración: ${item.custom_duration}s`);
 
         if (item.type !== 'video') {
-            // FIX: Usamos item.custom_duration explícitamente, o 10s por defecto.
             const duration = (parseInt(item.custom_duration) || 10) * 1000;
             timerRef.current = setTimeout(nextItem, duration);
         }
@@ -221,10 +222,11 @@ export default function TVPlayer() {
         return () => clearTimeout(timerRef.current);
     }, [currentIndex, status, activePlaylist]);
 
-
     // --- RENDERIZADO ---
     const renderMedia = (item, animationClass = '') => {
         if (!item) return null;
+        
+        // Si es video REAL del usuario
         const content = item.type === 'video' ? (
             <video 
                 src={item.url} autoPlay muted={true} playsInline
@@ -253,7 +255,6 @@ export default function TVPlayer() {
 
     if (status === 'loading') return <div style={styles.containerBlack}><Loader size={50} className="spin" color="#3b82f6"/></div>;
     
-    // PANTALLA DE SUSPENDIDO (Ahora sale automáticamente)
     if (status === 'suspended') return (
         <div style={styles.containerBlack}>
             <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '40px', borderRadius: '50%', marginBottom: '30px' }}>
@@ -263,7 +264,6 @@ export default function TVPlayer() {
             <p style={{ color: '#9ca3af', fontSize: '18px', maxWidth: '600px', textAlign: 'center' }}>
                 {errorMsg}
             </p>
-            <p style={{ position: 'absolute', bottom: '30px', color: '#334155', fontSize: '12px' }}></p>
         </div>
     );
     
@@ -276,8 +276,30 @@ export default function TVPlayer() {
     if (status === 'playing') {
         return (
             <div style={styles.playerContainer}>
+                {/* 👇👇👇 AQUÍ ESTÁ EL FIX 👇👇👇
+                   Video invisible que se reproduce en bucle para engañar a la TV
+                   y evitar que entre en modo suspensión cuando solo hay imágenes.
+                */}
+                <video 
+                    src={NO_SLEEP_VIDEO_BASE64}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    style={{
+                        position: 'absolute',
+                        width: '1px',
+                        height: '1px',
+                        opacity: 0.01,
+                        pointerEvents: 'none',
+                        zIndex: 0
+                    }}
+                />
+                
+                {/* Contenido Real */}
                 {renderMedia(activePlaylist[currentIndex], isTransitioning ? 'fadeIn 1s forwards' : '')}
                 {isTransitioning && previousIndex !== null && renderMedia(activePlaylist[previousIndex], 'fadeOut 1s forwards')}
+                
                 <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }`}</style>
             </div>
         );
