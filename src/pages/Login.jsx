@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
-// Usamos el icono de usuario y otros
 import { Lock, User, ArrowRight } from 'lucide-react';
 
-// 1. IMPORTAMOS EL LOGO
+// IMPORTAMOS EL LOGO
 import logoMochis from '../assets/mochis_punto_net_logo.png';
 
 export default function Login() {
@@ -38,7 +37,7 @@ export default function Login() {
         {/* HEADER */}
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
           
-          {/* 2. LOGO AQUÍ (Reemplazamos el cuadro 'MN') */}
+          {/* LOGO */}
           <img 
             src={logoMochis} 
             alt="Mochis.Net Logo" 
@@ -83,7 +82,7 @@ export default function Login() {
           <button 
             type="submit" 
             disabled={loading}
-            style={buttonStyle}
+            style={buttonStyle} // Nota: Ahora el botón usa el color sólido
           >
             {loading ? 'Entrando...' : 'Iniciar Sesión'} 
             {!loading && <ArrowRight size={18} />}
@@ -95,13 +94,15 @@ export default function Login() {
 }
 
 // --- ESTILOS ---
+
 const containerStyle = {
   height: '100vh',
   width: '100vw',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)', 
+  // CAMBIO AQUÍ: Usamos tus colores en degradado
+  background: 'linear-gradient(135deg, #01597d 0%, #003656 100%)', 
   fontFamily: '"Inter", sans-serif'
 };
 
@@ -109,18 +110,17 @@ const cardStyle = {
   backgroundColor: 'white',
   padding: '40px',
   borderRadius: '16px',
-  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', // Sombra un poco más fuerte para contrastar con el fondo oscuro
   width: '100%',
   maxWidth: '400px'
 };
 
-// 3. ESTILO DEL LOGO ACTUALIZADO (Para imagen)
 const logoStyle = {
-  width: '250px',      // Ajusta este tamaño según necesites
-  height: 'auto',      // Mantiene la proporción
+  width: '250px',      
+  height: 'auto',      
   objectFit: 'contain',
   display: 'block',
-  margin: '0 auto 15px auto' // Centrado horizontal y margen inferior
+  margin: '0 auto 15px auto' 
 };
 
 const labelStyle = {
@@ -150,10 +150,11 @@ const inputStyle = {
   color: '#111827'
 };
 
+// Ajusté el color del botón para que combine con tu nuevo fondo
 const buttonStyle = {
   width: '100%',
   padding: '14px',
-  backgroundColor: '#4f46e5',
+  backgroundColor: '#01597d', // Usamos el azul más claro para el botón
   color: 'white',
   border: 'none',
   borderRadius: '8px',
