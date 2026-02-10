@@ -7,24 +7,25 @@ import Clients from './pages/Clients';
 import UsersPage from './pages/Users';
 import ClientDetails from './pages/ClientDetails';
 
-// IMPORTANTE: Asegúrate de haber creado este archivo en src/components/
-import SidebarLayout from './components/SidebarLayout'; 
-
 // ==========================================
-// 1. GUARDIÁN DE RUTAS PRIVADAS
+// 1. SI NO TIENES TOKEN -> AL LOGIN
 // ==========================================
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  if (!token) return <Navigate to="/" replace />;
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
   return children;
 };
 
 // ==========================================
-// 2. GUARDIÁN DE LOGIN
+// 2. SI YA TIENES TOKEN -> AL DASHBOARD
 // ==========================================
 const RedirectIfAuthenticated = ({ children }) => {
   const token = localStorage.getItem('token');
-  if (token) return <Navigate to="/dashboard" replace />;
+  if (token) {
+    return <Navigate to="/dashboard" replace />;
+  }
   return children;
 };
 
@@ -33,62 +34,50 @@ function App() {
     <BrowserRouter>
       <Routes>
         
-        {/* --- 1. LOGIN (Público, pero te saca si ya entraste) --- */}
+        {/* LOGIN: Usamos el guardia para que no puedas entrar si ya tienes sesión */}
         <Route path="/" element={
           <RedirectIfAuthenticated>
             <Login />
           </RedirectIfAuthenticated>
         } />
 
-        {/* --- 2. TV PLAYER (TOTALMENTE PÚBLICO) --- */}
-        {/* No tiene SidebarLayout (pantalla completa) y No tiene ProtectedRoute */}
-        <Route path="/app" element={<TVPlayer />} />
-
-
-        {/* --- 3. ZONA PRIVADA CON MENÚ (Admin) --- */}
-        {/* Aquí usamos SidebarLayout para que aparezca el menú lateral/superior */}
+        {/* --- RUTAS PRIVADAS (Solo agregué el envoltorio ProtectedRoute) --- */}
         
         <Route path="/dashboard" element={
           <ProtectedRoute>
-            <SidebarLayout>
-              <Dashboard />
-            </SidebarLayout>
+            <Dashboard />
           </ProtectedRoute>
         } />
         
         <Route path="/media" element={
           <ProtectedRoute>
-            <SidebarLayout>
-              <MediaManager />
-            </SidebarLayout>
+            <MediaManager />
           </ProtectedRoute>
         } />
         
         <Route path="/clients" element={
           <ProtectedRoute>
-            <SidebarLayout>
-              <Clients />
-            </SidebarLayout>
-          </ProtectedRoute>
-        } />
-
-        <Route path="/clients/:id" element={
-          <ProtectedRoute>
-            <SidebarLayout>
-              <ClientDetails />
-            </SidebarLayout>
+            <Clients />
           </ProtectedRoute>
         } />
 
         <Route path="/users" element={
           <ProtectedRoute>
-            <SidebarLayout>
-              <UsersPage />
-            </SidebarLayout>
+            <UsersPage />
           </ProtectedRoute>
         } />
 
-        {/* CATCH-ALL */}
+        <Route path="/clients/:id" element={
+          <ProtectedRoute>
+            <ClientDetails />
+          </ProtectedRoute>
+        } />
+
+        {/* --- RUTA PÚBLICA (TV) --- */}
+        {/* Esta la dejé EXACTAMENTE igual, sin protección */}
+        <Route path="/app" element={<TVPlayer />} />
+
+        {/* CATCH ALL */}
         <Route path="*" element={<Navigate to="/" replace />} />
         
       </Routes>
