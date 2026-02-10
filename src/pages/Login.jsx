@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import { Lock, User, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 // IMPORTAMOS EL LOGO
 import logoMochis from '../assets/mochis_punto_net_logo.png';
@@ -11,6 +12,14 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+useEffect(() => {
+    const token = localStorage.getItem('token');
+
+    if (token) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
