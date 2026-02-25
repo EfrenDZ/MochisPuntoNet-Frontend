@@ -299,7 +299,7 @@ export default function TVPlayer() {
         );
     }
 
-    if (status === 'loading') return <div style={styles.containerBlack}><Loader size={50} className="spin" color="#3b82f6" /></div>;
+    if (status === 'loading') return <div style={styles.containerBlack}><Loader size={50} className="spin" color="#3b82f6" /><style>{`@keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1s infinite linear; }`}</style></div>;
 
     if (status === 'suspended') return (
         <div style={styles.containerBlack}>
@@ -313,7 +313,7 @@ export default function TVPlayer() {
 
     if (status === 'offline') return <div style={styles.containerError}><WifiOff size={80} color="white" /><h1>Sin Conexión</h1><button onClick={() => window.location.reload()} style={styles.btnRetry}>Reconectar</button></div>;
 
-    if (status === 'pairing') return <div style={styles.containerPairing}><div style={styles.codeBox}><p>Código:</p><h1 style={styles.bigCode}>{pairingCode}</h1><Loader size={20} className="spin" /></div><style>{`.spin { animation: spin 2s infinite linear; }`}</style></div>;
+    if (status === 'pairing') return <div style={styles.containerPairing}><div style={styles.codeBox}><p>Código:</p><h1 style={styles.bigCode}>{pairingCode}</h1><Loader size={40} className="spin" color="#3b82f6" style={{ marginTop: '20px' }} /></div><style>{`@keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1s infinite linear; }`}</style></div>;
 
     if (status === 'empty') return <div style={styles.containerBlack}><CloudOff size={60} color="#64748b" /><h2>Sin Contenido</h2></div>;
 
