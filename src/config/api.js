@@ -4,7 +4,7 @@ import axios from 'axios';
 // 1. CONFIGURACIÓN BÁSICA
 // Usamos una variable de entorno, pero si falla, usamos la URL directa.
 // ============================================================
-const API_URL = import.meta.env.VITE_API_URL || 'https://mochispuntonet-backend.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
     baseURL: API_URL,
@@ -44,11 +44,11 @@ api.interceptors.response.use(
         // Si el servidor nos rechaza (401 Unauthorized)
         if (error.response && error.response.status === 401) {
             console.warn('Acceso denegado o sesión expirada. Cerrando sesión...');
-            
+
             // 1. Limpieza de datos locales
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            
+
             // 2. Redirección forzada al Login
             // Usamos window.location.href para asegurar una recarga limpia
             if (window.location.pathname !== '/') {
