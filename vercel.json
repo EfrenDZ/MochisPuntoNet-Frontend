@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://mochis-net.onrender.com/api/$1"
+      "destination": "https://mochispuntonet-backend-screen.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",

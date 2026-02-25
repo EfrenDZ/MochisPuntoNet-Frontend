@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://mochis-net.onrender.com',
+        target: 'https://mochispuntonet-backend-screen.onrender.com',
         changeOrigin: true,
         secure: false,
       },
