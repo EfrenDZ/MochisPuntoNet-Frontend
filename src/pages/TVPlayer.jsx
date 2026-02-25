@@ -241,14 +241,21 @@ export default function TVPlayer() {
                     // Esto evita radicalmente que Vercel guarde la respuesta en caché
                     const s = await api.post('/tv/status', { code: res.data.code });
 
+                    console.log("[POLL TV STATUS] Código enviado:", res.data.code);
+                    console.log("[POLL TV STATUS] Respuesta recibida:", s.data);
+
                     if (s.data.status === 'paired') {
+                        console.log("[POLL TV STATUS] ¡Vinculado! Token recibido:", s.data.token);
                         localStorage.setItem('device_token', s.data.token);
                         clearInterval(pollRef.current);
                         window.location.reload();
                     } else if (s.data.status === 'error') {
+                        console.warn("[POLL TV STATUS] Error desde servidor:", s.data.message);
                         clearInterval(pollRef.current);
                         setStatus('suspended'); // Or a new state if needed, using suspended to show errorMsg securely
                         setErrorMsg(s.data.message || 'Error de vinculación');
+                    } else {
+                        console.log("[POLL TV STATUS] Esperando vinculación... (status: waiting)");
                     }
                 } catch (err) {
                     console.error("Error en polling de TV:", err);
