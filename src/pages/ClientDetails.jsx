@@ -3,21 +3,21 @@ import { useParams } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import api from '../config/api';
 // IMPORTAMOS EL NUEVO COMPONENTE
-import MediaLibraryModal from '../components/MediaLibraryModal'; 
+import MediaLibraryModal from '../components/MediaLibraryModal';
 
-import { 
-    DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, 
-    useSensor, useSensors, defaultDropAnimationSideEffects 
+import {
+    DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor,
+    useSensor, useSensors, defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
-import { 
-    arrayMove, sortableKeyboardCoordinates, rectSortingStrategy, 
-    SortableContext, useSortable 
+import {
+    arrayMove, sortableKeyboardCoordinates, rectSortingStrategy,
+    SortableContext, useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { 
-    Tv, Smartphone, Plus, X, Layers, Play, Trash2, Lock, Unlock, 
-    AlertTriangle, CheckCircle, Link as LinkIcon, Unlink, Loader, 
+import {
+    Tv, Smartphone, Plus, X, Layers, Play, Trash2, Lock, Unlock,
+    AlertTriangle, CheckCircle, Link as LinkIcon, Unlink, Loader,
     Save, Clock, Edit2, Folder, FolderPlus, Monitor, GripVertical,
     Grid, Image as ImageIcon, Maximize2, ArrowLeft, Film
 } from 'lucide-react';
@@ -159,7 +159,7 @@ const STYLES = `
 // === COMPONENTES AUXILIARES ===
 const CustomAlert = ({ config, onClose }) => {
     if (!config.isOpen) return null;
-    const themes = { danger: { icon: <Trash2 size={24}/>, className: 'alert-danger' }, warning: { icon: <AlertTriangle size={24}/>, className: 'alert-warning' }, info: { icon: <CheckCircle size={24}/>, className: 'alert-info' } };
+    const themes = { danger: { icon: <Trash2 size={24} />, className: 'alert-danger' }, warning: { icon: <AlertTriangle size={24} />, className: 'alert-warning' }, info: { icon: <CheckCircle size={24} />, className: 'alert-info' } };
     const theme = themes[config.type] || themes.info;
     return (
         <div className="overlay-backdrop alert-layer">
@@ -185,60 +185,60 @@ const CustomAlert = ({ config, onClose }) => {
 
 const ToastNotification = ({ visible, message, type }) => {
     if (!visible) return null;
-    return <div className={`toast-notification ${type}`}>{type === 'error' ? <AlertTriangle size={18}/> : <CheckCircle size={18}/>}<span>{message}</span></div>;
+    return <div className={`toast-notification ${type}`}>{type === 'error' ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}<span>{message}</span></div>;
 };
 
 // ============ AQUI ESTA LA LOGICA DEL VIDEO Y DISEÑO MEJORADO ============
 const SortablePlaylistItem = memo(({ item, onRemove, onUpdateDuration, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.item_id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, touchAction: 'none', zIndex: isDragging ? 999 : 'auto' };
-    
+
     // Detectamos si es video
     const isVideo = item.type === 'video';
 
     return (
         <div ref={setNodeRef} style={style} className="playlist-row">
-            <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#94a3b8', display:'flex', padding:'5px' }}>
-                <GripVertical size={20}/>
+            <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#94a3b8', display: 'flex', padding: '5px' }}>
+                <GripVertical size={20} />
             </div>
-            
+
             {isVideo ? (
                 <div className="row-img-placeholder">
-                    <Film size={20} color="white"/>
+                    <Film size={20} color="white" />
                 </div>
             ) : (
-                <img src={item.url} alt="media" className="row-img"/>
+                <img src={item.url} alt="media" className="row-img" />
             )}
-            
+
             <div className="row-info">
                 <span className="row-title-text">
-                    {isVideo ? <Film size={14} className="text-blue-500"/> : <ImageIcon size={14} className="text-green-500"/>}
+                    {isVideo ? <Film size={14} className="text-blue-500" /> : <ImageIcon size={14} className="text-green-500" />}
                     {isVideo ? 'Video Clip' : 'Imagen'}
                 </span>
                 <span className="row-index-text">Posición #{index + 1}</span>
             </div>
-            
+
             {isVideo ? (
                 /* MOSTRAR CANDADO SI ES VIDEO */
                 <div className="duration-locked">
-                    <Lock size={12}/> <span>AUTO</span>
+                    <Lock size={12} /> <span>AUTO</span>
                 </div>
             ) : (
                 /* MOSTRAR INPUT SI ES IMAGEN */
                 <div className="duration-wrapper">
-                    <Clock size={14} style={{color: '#64748b'}}/>
-                    <input 
-                        type="number" 
-                        value={item.custom_duration || 10} 
-                        onChange={e => onUpdateDuration(item.item_id, e.target.value)} 
+                    <Clock size={14} style={{ color: '#64748b' }} />
+                    <input
+                        type="number"
+                        value={item.custom_duration || 10}
+                        onChange={e => onUpdateDuration(item.item_id, e.target.value)}
                         className="duration-input"
                     />
-                    <span style={{fontSize: 10, color: '#64748b', fontWeight:700}}>s</span>
+                    <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>s</span>
                 </div>
             )}
-            
+
             <button onClick={() => onRemove(item.item_id)} className="btn-icon-delete">
-                <Trash2 size={16}/>
+                <Trash2 size={16} />
             </button>
         </div>
     );
@@ -263,11 +263,11 @@ const ScreenItem = memo(({ id, screen, onClick, isEditMode, onEditScreen, onDele
     const hasImage = screen.thumbnails?.length > 0;
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="screen-item-wrapper">
-            <div onClick={(e) => { if(isEditMode) return; onClick(); }} className={`screen-card ${screen.orientation === 'vertical' ? 'vertical' : ''} ${isGrouped ? 'grouped' : ''} ${isEditMode ? 'edit-mode' : ''}`}>
-                {isGrouped && <div className="grouped-tag"><LinkIcon size={10}/> {groupName || 'Grupo'}</div>}
+            <div onClick={(e) => { if (isEditMode) return; onClick(); }} className={`screen-card ${screen.orientation === 'vertical' ? 'vertical' : ''} ${isGrouped ? 'grouped' : ''} ${isEditMode ? 'edit-mode' : ''}`}>
+                {isGrouped && <div className="grouped-tag"><LinkIcon size={10} /> {groupName || 'Grupo'}</div>}
                 {hasImage ? (<img src={screen.thumbnails[0]} alt="thumbnail" className="screen-img-content" />) : (<div className="screen-placeholder-content">{screen.orientation === 'horizontal' ? <Tv size={48} strokeWidth={1.5} /> : <Smartphone size={32} strokeWidth={1.5} />}<span className="no-signal-text">SIN SEÑAL</span></div>)}
                 <div className={`status-dot ${screen.status === 'online' ? 'online' : 'offline'}`}></div>
-                {isEditMode && (<><div className="drag-handle"><Layers size={14}/></div><div className="edit-actions"><button onPointerDown={e => e.stopPropagation()} onClick={(e) => {e.stopPropagation(); onEditScreen(screen)}} className="btn-mini edit"><Edit2 size={12}/></button><button onPointerDown={e => e.stopPropagation()} onClick={(e) => {e.stopPropagation(); onDeleteScreen(screen.id)}} className="btn-mini delete"><Trash2 size={12}/></button></div></>)}
+                {isEditMode && (<><div className="drag-handle"><Layers size={14} /></div><div className="edit-actions"><button onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEditScreen(screen) }} className="btn-mini edit"><Edit2 size={12} /></button><button onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDeleteScreen(screen.id) }} className="btn-mini delete"><Trash2 size={12} /></button></div></>)}
             </div>
             <div className="item-label">{screen.name}</div>
         </div>
@@ -303,23 +303,23 @@ export default function ClientDetails() {
     const [groups, setGroups] = useState([]);
     const [items, setItems] = useState({ "container-0": [] });
     const [availableMedia, setAvailableMedia] = useState([]);
-    
+
     const [isEditMode, setIsEditMode] = useState(false);
     const [activeId, setActiveId] = useState(null);
     const [selectedRowId, setSelectedRowId] = useState("container-0");
-    const [selectedEntity, setSelectedEntity] = useState(null); 
+    const [selectedEntity, setSelectedEntity] = useState(null);
     const [playlist, setPlaylist] = useState([]);
     const originalPlaylistRef = useRef([]);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
     const [modals, setModals] = useState({ createScreen: false, createGroup: false, editScreen: false });
     const [inputs, setInputs] = useState({ screenName: '', groupName: '', orientation: 'horizontal', pairingCode: '', selectedGroup: '' });
-    const [editingScreen, setEditingScreen] = useState(null); 
+    const [editingScreen, setEditingScreen] = useState(null);
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
     const [loaders, setLoaders] = useState({ uploading: false, saving: false });
     const [isCreating, setIsCreating] = useState(false);
-    
+
     const [isLibraryOpen, setIsLibraryOpen] = useState(false);
     const [fullScreenPreview, setFullScreenPreview] = useState(false);
 
@@ -345,11 +345,11 @@ export default function ClientDetails() {
         else {
             for (let i = 0; i < playlist.length; i++) {
                 // Comparamos ID, ORDEN (por índice) y DURACIÓN
-                if (playlist[i].item_id !== original[i].item_id || 
-                    String(playlist[i].item_id).startsWith('temp-') || 
-                    parseInt(playlist[i].custom_duration) !== parseInt(original[i].custom_duration)) { 
-                    changed = true; 
-                    break; 
+                if (playlist[i].item_id !== original[i].item_id ||
+                    String(playlist[i].item_id).startsWith('temp-') ||
+                    parseInt(playlist[i].custom_duration) !== parseInt(original[i].custom_duration)) {
+                    changed = true;
+                    break;
                 }
             }
         }
@@ -371,16 +371,16 @@ export default function ClientDetails() {
             setGroups(groupsRes.data);
             const grouped = {};
             screensRes.data.forEach(s => { const r = `container-${s.row_index || 0}`; if (!grouped[r]) grouped[r] = []; grouped[r].push(s); });
-            if(Object.keys(grouped).length === 0) grouped["container-0"] = [];
+            if (Object.keys(grouped).length === 0) grouped["container-0"] = [];
             const finalItems = {};
-            Object.keys(grouped).sort((a,b) => parseInt(a.split('-')[1]) - parseInt(b.split('-')[1])).forEach(key => { finalItems[key] = grouped[key].sort((a,b) => (a.display_order || 0) - (b.display_order || 0)).map(s => `item-${s.id}`); });
+            Object.keys(grouped).sort((a, b) => parseInt(a.split('-')[1]) - parseInt(b.split('-')[1])).forEach(key => { finalItems[key] = grouped[key].sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).map(s => `item-${s.id}`); });
             setItems(finalItems);
         } catch (error) { console.error(error); } finally { setLoading(false); }
     }, [id]);
 
-    const showAlert = useCallback((type, title, message, onConfirm, isExitConfirmation, onSaveAndExit) => { setAlertConfig({ isOpen: true, type, title, message, onConfirm: () => { setAlertConfig(p => ({...p, isOpen:false})); onConfirm && onConfirm(); }, isExitConfirmation, onSaveAndExit }); }, []);
-    const closeAlert = useCallback(() => setAlertConfig(p => ({...p, isOpen:false})), []);
-    const showToast = useCallback((msg, type='success') => { setToast({visible:true, message:msg, type}); setTimeout(() => setToast(p=>({...p, visible:false})), 3000); }, []);
+    const showAlert = useCallback((type, title, message, onConfirm, isExitConfirmation, onSaveAndExit) => { setAlertConfig({ isOpen: true, type, title, message, onConfirm: () => { setAlertConfig(p => ({ ...p, isOpen: false })); onConfirm && onConfirm(); }, isExitConfirmation, onSaveAndExit }); }, []);
+    const closeAlert = useCallback(() => setAlertConfig(p => ({ ...p, isOpen: false })), []);
+    const showToast = useCallback((msg, type = 'success') => { setToast({ visible: true, message: msg, type }); setTimeout(() => setToast(p => ({ ...p, visible: false })), 3000); }, []);
 
     const handleDiscardAndExit = (nextAction) => {
         setHasUnsavedChanges(false);
@@ -388,11 +388,11 @@ export default function ClientDetails() {
     };
 
     const handleEntityClick = useCallback(async (entity, type) => {
-        if (hasUnsavedChanges) { 
-            showAlert('warning', 'Cambios sin guardar', '¿Qué deseas hacer?', null, true, async () => { 
-                await handleSaveAllChanges(); 
-                loadEntity(entity, type); 
-            }); 
+        if (hasUnsavedChanges) {
+            showAlert('warning', 'Cambios sin guardar', '¿Qué deseas hacer?', null, true, async () => {
+                await handleSaveAllChanges();
+                loadEntity(entity, type);
+            });
             setAlertConfig(prev => ({
                 ...prev,
                 onConfirm: () => {
@@ -400,13 +400,13 @@ export default function ClientDetails() {
                     handleDiscardAndExit(() => loadEntity(entity, type));
                 }
             }));
-            return; 
+            return;
         }
         loadEntity(entity, type);
     }, [hasUnsavedChanges]);
 
     const loadEntity = async (entity, type) => {
-        setPlaylist([]); 
+        setPlaylist([]);
         setSelectedEntity({ type, data: entity });
         setCurrentPreviewIndex(0);
         setInputs(prev => ({ ...prev, pairingCode: '' }));
@@ -414,7 +414,7 @@ export default function ClientDetails() {
             const url = type === 'screen' ? (entity.group_id ? `/admin/groups/${entity.group_id}/playlist` : `/playlist/${entity.id}`) : `/admin/groups/${entity.id}/playlist`;
             const res = await api.get(url);
             // Ordenar por display_order si el backend lo devuelve
-            const sorted = res.data.sort((a,b) => (a.display_order || 0) - (b.display_order || 0));
+            const sorted = res.data.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
             setPlaylist(sorted);
             originalPlaylistRef.current = JSON.parse(JSON.stringify(sorted));
         } catch (e) { console.error(e); }
@@ -439,119 +439,119 @@ export default function ClientDetails() {
     };
 
     const addRow = () => { const newIndex = Object.keys(items).length; const newKey = `container-${newIndex}`; setItems({ ...items, [newKey]: [] }); setSelectedRowId(newKey); setIsEditMode(true); };
-    
+
     const handleCreateScreen = async (e) => {
         e.preventDefault(); e.stopPropagation(); if (isCreating) return; setIsCreating(true);
         const cleanRowIndex = parseInt(selectedRowId.replace('container-', ''));
-        try { await api.post('/admin/screens', { clientId: id, name: inputs.screenName, orientation: inputs.orientation, row_index: cleanRowIndex, group_id: inputs.selectedGroup ? parseInt(inputs.selectedGroup) : null }); setModals(p => ({...p, createScreen: false})); setInputs(p => ({...p, screenName: '', selectedGroup: ''})); fetchData(); showToast('Pantalla creada'); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo crear pantalla'); } finally { setIsCreating(false); }
+        try { await api.post('/admin/screens', { clientId: id, name: inputs.screenName, orientation: inputs.orientation, row_index: cleanRowIndex, group_id: inputs.selectedGroup ? parseInt(inputs.selectedGroup) : null }); setModals(p => ({ ...p, createScreen: false })); setInputs(p => ({ ...p, screenName: '', selectedGroup: '' })); fetchData(); showToast('Pantalla creada'); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo crear pantalla'); } finally { setIsCreating(false); }
     };
 
-    const handleCreateGroup = async (e) => { 
+    const handleCreateGroup = async (e) => {
         e.preventDefault(); e.stopPropagation(); if (isCreating) return; setIsCreating(true);
-        try { await api.post('/admin/groups', { clientId: id, name: inputs.groupName }); setModals(p => ({...p, createGroup: false})); setInputs(p => ({...p, groupName: ''})); fetchData(); showToast('Grupo creado'); } catch (e) { console.error(e); } finally { setIsCreating(false); }
+        try { await api.post('/admin/groups', { clientId: id, name: inputs.groupName }); setModals(p => ({ ...p, createGroup: false })); setInputs(p => ({ ...p, groupName: '' })); fetchData(); showToast('Grupo creado'); } catch (e) { console.error(e); } finally { setIsCreating(false); }
     };
 
     const handleDeleteGroup = useCallback((groupId) => { showAlert('danger', '¿Eliminar Grupo?', 'Las pantallas quedarán sueltas.', async () => { closeAlert(); try { await api.delete(`/admin/groups/${groupId}`); fetchData(); showToast('Grupo eliminado'); } catch (e) { console.error(e); } }); }, [fetchData, showAlert, closeAlert, showToast]);
-    const requestDeleteRow = useCallback((rowId, rowItems) => { const cleanIds = rowItems.map(ri => ri.replace('item-', '')); showAlert('danger', 'Borrar Fila', 'Se borrarán las pantallas.', () => { closeAlert(); Promise.all(cleanIds.map(sid => api.delete(`/admin/screens/${sid}`))).then(() => { const n = {...items}; delete n[rowId]; setItems(n); fetchData(); }); }); }, [items, fetchData, showAlert, closeAlert]);
+    const requestDeleteRow = useCallback((rowId, rowItems) => { const cleanIds = rowItems.map(ri => ri.replace('item-', '')); showAlert('danger', 'Borrar Fila', 'Se borrarán las pantallas.', () => { closeAlert(); Promise.all(cleanIds.map(sid => api.delete(`/admin/screens/${sid}`))).then(() => { const n = { ...items }; delete n[rowId]; setItems(n); fetchData(); }); }); }, [items, fetchData, showAlert, closeAlert]);
     const confirmDeleteScreen = useCallback((id) => { const clean = String(id).replace('item-', ''); showAlert('danger', 'Borrar Pantalla', 'Confirmar acción', async () => { closeAlert(); await api.delete(`/admin/screens/${clean}`); fetchData(); }); }, [fetchData, showAlert, closeAlert]);
-    
-    const handleLinkTV = async (e) => { e.preventDefault(); if (isCreating) return; setIsCreating(true); try { await api.post('/admin/screens/link', { screenId: selectedEntity.data.id, pairingCode: inputs.pairingCode }); fetchData(); showToast('Vinculado'); setSelectedEntity(prev => ({...prev, data: {...prev.data, status:'online'}})); } catch(e){ console.error(e); showAlert('danger', 'Error', 'Código inválido'); } finally { setIsCreating(false); } };
-    const handleUnlinkTV = () => { showAlert('danger', 'Desvincular', 'La pantalla dejará de recibir contenido. ¿Seguro?', async () => { closeAlert(); try { await api.post('/admin/screens/unlink', { screenId: selectedEntity.data.id }); fetchData(); showToast('Desvinculado correctamente'); setSelectedEntity(prev => ({...prev, data: {...prev.data, status:'offline'}})); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo desvincular'); } }); };
-    
+
+    const handleLinkTV = async (e) => { e.preventDefault(); if (isCreating) return; setIsCreating(true); try { await api.post('/admin/screens/link', { screenId: selectedEntity.data.id, pairingCode: inputs.pairingCode }); fetchData(); showToast('Vinculado'); setSelectedEntity(prev => ({ ...prev, data: { ...prev.data, status: 'online' } })); } catch (e) { console.error(e); const errorMsg = e.response?.data?.error || 'Código inválido o ya vinculado'; showAlert('danger', 'Error', errorMsg); } finally { setIsCreating(false); } };
+    const handleUnlinkTV = () => { showAlert('danger', 'Desvincular', 'La pantalla dejará de recibir contenido. ¿Seguro?', async () => { closeAlert(); try { await api.post('/admin/screens/unlink', { screenId: selectedEntity.data.id }); fetchData(); showToast('Desvinculado correctamente'); setSelectedEntity(prev => ({ ...prev, data: { ...prev.data, status: 'offline' } })); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo desvincular'); } }); };
+
     const handleFileUploadQuick = async (e) => {
-        const file = e.target.files[0]; if(!file) return; setLoaders(p => ({...p, uploading: true})); const fd = new FormData(); const safeId = id ? String(id) : 'general'; fd.append('clientId', safeId); fd.append('file', file);
-        try { await api.post('/media/upload', fd, { headers: { "Content-Type": undefined } }); const res = await api.get(`/media/library?clientId=${id}`); setAvailableMedia(res.data); showToast('Archivo subido'); } catch(e) { const msg = e.response?.data?.error || 'Fallo al subir'; showAlert('danger', 'Error', msg); } finally { setLoaders(p => ({...p, uploading: false})); e.target.value = null; }
+        const file = e.target.files[0]; if (!file) return; setLoaders(p => ({ ...p, uploading: true })); const fd = new FormData(); const safeId = id ? String(id) : 'general'; fd.append('clientId', safeId); fd.append('file', file);
+        try { await api.post('/media/upload', fd, { headers: { "Content-Type": undefined } }); const res = await api.get(`/media/library?clientId=${id}`); setAvailableMedia(res.data); showToast('Archivo subido'); } catch (e) { const msg = e.response?.data?.error || 'Fallo al subir'; showAlert('danger', 'Error', msg); } finally { setLoaders(p => ({ ...p, uploading: false })); e.target.value = null; }
     };
-    
-    const handleAddToPlaylistLocal = (mediaItem) => { 
-        if(!selectedEntity) return; 
+
+    const handleAddToPlaylistLocal = (mediaItem) => {
+        if (!selectedEntity) return;
         let fullMedia = mediaItem;
         if (typeof mediaItem === 'string' || typeof mediaItem === 'number') {
-             fullMedia = availableMedia.find(m => m.id === mediaItem);
+            fullMedia = availableMedia.find(m => m.id === mediaItem);
         }
-        
-        if(!fullMedia) return; 
-        
-        const newItem = { 
-            item_id: `temp-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, 
-            media_id: fullMedia.id, 
-            url: fullMedia.url, 
-            type: fullMedia.type, 
+
+        if (!fullMedia) return;
+
+        const newItem = {
+            item_id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            media_id: fullMedia.id,
+            url: fullMedia.url,
+            type: fullMedia.type,
             custom_duration: fullMedia.type === 'video' ? 0 : 10, // 0 si es video
-            display_order: playlist.length 
-        }; 
-        setPlaylist(prev => [...prev, newItem]); 
-        showToast("Añadido a Playlist"); 
+            display_order: playlist.length
+        };
+        setPlaylist(prev => [...prev, newItem]);
+        showToast("Añadido a Playlist");
     };
 
     // ============ AQUÍ ESTÁ LA SOLUCIÓN AL RESETEO ============
     const handleSaveAllChanges = async () => {
-        if (!selectedEntity || !hasUnsavedChanges) return; 
-        setLoaders(prev => ({...prev, saving: true}));
-        
+        if (!selectedEntity || !hasUnsavedChanges) return;
+        setLoaders(prev => ({ ...prev, saving: true }));
+
         try {
-            const isGroup = selectedEntity.type === 'group'; 
-            const entityId = selectedEntity.data.id; 
-            const original = originalPlaylistRef.current; 
+            const isGroup = selectedEntity.type === 'group';
+            const entityId = selectedEntity.data.id;
+            const original = originalPlaylistRef.current;
             const current = playlist;
-            
+
             // 1. Detectar eliminados
-            const currIds = new Set(current.filter(i=>!String(i.item_id).startsWith('temp-')).map(i => i.item_id));
-            const toDelete = original.filter(i => !currIds.has(i.item_id)); 
-            
-            const promises = []; 
-            
+            const currIds = new Set(current.filter(i => !String(i.item_id).startsWith('temp-')).map(i => i.item_id));
+            const toDelete = original.filter(i => !currIds.has(i.item_id));
+
+            const promises = [];
+
             // Ejecutar eliminaciones
-            toDelete.forEach(item => promises.push(api.delete(`/playlist/${item.item_id}`))); 
+            toDelete.forEach(item => promises.push(api.delete(`/playlist/${item.item_id}`)));
 
             // 2. Iterar sobre la playlist ACTUAL para guardar ORDEN Y NUEVOS
             // Usamos un bucle forEach sobre 'current' para usar el INDEX como display_order
             current.forEach((item, index) => {
                 const isNew = String(item.item_id).startsWith('temp-');
                 const isVideo = item.type === 'video';
-                
+
                 // Aseguramos que el video tenga duración 0 o la que venga
                 const durationToSend = isVideo ? 0 : parseInt(item.custom_duration);
 
                 if (isNew) {
                     // CREAR: Enviamos mediaId, duration Y DISPLAY_ORDER
-                    const payload = { 
-                        mediaId: item.media_id, 
+                    const payload = {
+                        mediaId: item.media_id,
                         duration: durationToSend,
                         display_order: index // <--- CLAVE PARA QUE NO SE RESETEE
-                    }; 
-                    
-                    if(isGroup) payload.groupId = entityId; 
-                    else payload.screenId = entityId; 
-                    
+                    };
+
+                    if (isGroup) payload.groupId = entityId;
+                    else payload.screenId = entityId;
+
                     promises.push(api.post('/playlist', payload));
                 } else {
                     // ACTUALIZAR: Enviamos SIEMPRE el update para asegurar el orden
-                    promises.push(api.put(`/playlist/${item.item_id}`, { 
+                    promises.push(api.put(`/playlist/${item.item_id}`, {
                         duration: durationToSend,
                         display_order: index // <--- CLAVE PARA GUARDAR LA POSICIÓN
                     }));
                 }
             });
-            
+
             await Promise.all(promises);
-            
-            const route = isGroup ? `/admin/groups/${entityId}/playlist` : `/playlist/${entityId}`; 
+
+            const route = isGroup ? `/admin/groups/${entityId}/playlist` : `/playlist/${entityId}`;
             const freshRes = await api.get(route);
             // Ordenar lo que vuelve del servidor
-            const sorted = freshRes.data.sort((a,b) => (a.display_order || 0) - (b.display_order || 0));
-            
-            setPlaylist(sorted); 
-            originalPlaylistRef.current = JSON.parse(JSON.stringify(sorted)); 
-            
-            setHasUnsavedChanges(false); 
+            const sorted = freshRes.data.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+            setPlaylist(sorted);
+            originalPlaylistRef.current = JSON.parse(JSON.stringify(sorted));
+
+            setHasUnsavedChanges(false);
             showToast('Guardado correctamente');
 
-        } catch (e) { 
-            console.error(e); 
-            showAlert('danger', 'Error', 'Ocurrió un error al guardar.'); 
-        } finally { 
-            setLoaders(prev => ({...prev, saving: false})); 
+        } catch (e) {
+            console.error(e);
+            showAlert('danger', 'Error', 'Ocurrió un error al guardar.');
+        } finally {
+            setLoaders(prev => ({ ...prev, saving: false }));
         }
     };
 
@@ -561,7 +561,7 @@ export default function ClientDetails() {
         const activeContainer = findContainer(active.id); const overContainer = (overId in items) ? overId : findContainer(overId);
         if (!activeContainer || !overContainer || activeContainer === overContainer) return;
         setItems((prev) => {
-            const activeItems = prev[activeContainer]; const overItems = prev[overContainer]; const activeIndex = activeItems.indexOf(active.id); 
+            const activeItems = prev[activeContainer]; const overItems = prev[overContainer]; const activeIndex = activeItems.indexOf(active.id);
             if (overItems.includes(active.id)) return prev;
             let newIndex;
             if (overId in prev) { newIndex = overItems.length + 1; }
@@ -574,143 +574,143 @@ export default function ClientDetails() {
         const { active, over } = event; const activeContainer = findContainer(active.id); const overContainer = (over?.id in items) ? over.id : findContainer(over?.id);
         if (activeContainer && overContainer) {
             const activeIndex = items[activeContainer].indexOf(active.id); const overIndex = items[overContainer].indexOf(over?.id);
-            if (activeContainer === overContainer && activeIndex !== overIndex) { setItems((items) => ({...items, [activeContainer]: arrayMove(items[activeContainer], activeIndex, overIndex)})); }
+            if (activeContainer === overContainer && activeIndex !== overIndex) { setItems((items) => ({ ...items, [activeContainer]: arrayMove(items[activeContainer], activeIndex, overIndex) })); }
         }
         setActiveId(null);
     }, [items]);
 
     const getActivePreviewContent = () => { if (!playlist || playlist.length === 0) return null; return playlist[currentPreviewIndex]; };
 
-    if (loading) return <SidebarLayout><style>{STYLES}</style><div className="loading-screen"><Loader className="spin-anim" size={30}/></div></SidebarLayout>;
+    if (loading) return <SidebarLayout><style>{STYLES}</style><div className="loading-screen"><Loader className="spin-anim" size={30} /></div></SidebarLayout>;
     if (!client) return <SidebarLayout><style>{STYLES}</style><div className="error-screen">Cliente no encontrado</div></SidebarLayout>;
 
-return (
-    <SidebarLayout>
-        <style>{STYLES}</style>
-        
-        <div className="page-scroll-wrapper">
-            <div className="content-padding-box">
-                <div className="header-container">
-                    <div><h1 className="page-title">{client?.name || 'Cargando...'}</h1><p className="subtitle">Mapa de Pantallas</p></div>
-                    <div className="header-actions">
-                        <button onClick={() => setIsEditMode(!isEditMode)} className={`btn-secondary ${isEditMode ? 'btn-active-edit' : ''}`}>{isEditMode ? <Unlock size={18}/> : <Lock size={18}/>} {isEditMode ? 'Edición' : 'Bloqueado'}</button>
-                        <div className="divider"></div>
-                        <button onClick={() => setModals(p => ({...p, createGroup: true}))} className="btn-secondary"><FolderPlus size={18}/> Grupo</button>
-                        {isEditMode && <button onClick={addRow} className="btn-secondary"><Layers size={18}/> Fila</button>}
-                        <button onClick={() => setModals(p => ({...p, createScreen: true}))} className="btn-primary"><Plus size={18}/> Pantalla</button>
-                    </div>
-                </div>
-                
-                {groups.length > 0 && (
-                    <div className="groups-section">
-                        <div className="section-label">Grupos de Sincronización</div>
-                        <div className="groups-grid">{groups.map(g => (<GroupCard key={g.id} group={g} onClick={() => handleEntityClick(g, 'group')} onDelete={id => handleDeleteGroup(id)} />))}</div>
-                    </div>
-                )}
-                
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={e => setActiveId(e.active.id)} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-                    <div className="board-container">
-                        {Object.keys(items).map(key => (
-                            <SortableRow key={key} id={key} activeId={activeId} items={items[key]} screensData={screensData} groups={groups} onScreenClick={s => handleEntityClick(s, 'screen')} isSelected={selectedRowId === key} onSelectRow={setSelectedRowId} isEditMode={isEditMode} onDeleteRow={requestDeleteRow} onEditScreen={s => { setEditingScreen(s); setModals(p => ({...p, editScreen: true})); }} onDeleteScreen={confirmDeleteScreen} />
-                        ))}
-                    </div>
-                    <DragOverlay dropAnimation={defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.6' } } })}>{activeId ? <div style={{width:'180px', height:'100px', background:'#3b82f6', borderRadius:'16px', opacity:0.8}}></div> : null}</DragOverlay>
-                </DndContext>
-            </div> 
-        </div> 
-        
-        {modals.createScreen && (
-            <div className="overlay-backdrop" onClick={() => !isCreating && setModals(p => ({...p, createScreen: false}))}>
-                    <div className="modern-modal alert-box" onClick={e => e.stopPropagation()}>
-                    <h3>Nueva Pantalla</h3>
-                    <form onSubmit={handleCreateScreen}>
-                        <input autoFocus type="text" placeholder="Nombre" value={inputs.screenName} onChange={e => setInputs(p => ({...p, screenName: e.target.value}))} style={{width:'100%', padding:'12px', border:'1px solid #cbd5e1', borderRadius:'8px', marginBottom:'15px'}} />
-                        <div style={{marginBottom: '15px'}}>
-                            <label style={{display:'block', textAlign:'left', fontSize:'12px', fontWeight:'700', color:'#64748b', marginBottom:'5px'}}>Asignar a Grupo (Opcional)</label>
-                            <select value={inputs.selectedGroup} onChange={e => setInputs(p => ({...p, selectedGroup: e.target.value}))} style={{width:'100%', padding:'10px', border:'1px solid #cbd5e1', borderRadius:'8px', background:'white'}}>
-                                <option value="">Ninguno</option>
-                                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                            </select>
+    return (
+        <SidebarLayout>
+            <style>{STYLES}</style>
+
+            <div className="page-scroll-wrapper">
+                <div className="content-padding-box">
+                    <div className="header-container">
+                        <div><h1 className="page-title">{client?.name || 'Cargando...'}</h1><p className="subtitle">Mapa de Pantallas</p></div>
+                        <div className="header-actions">
+                            <button onClick={() => setIsEditMode(!isEditMode)} className={`btn-secondary ${isEditMode ? 'btn-active-edit' : ''}`}>{isEditMode ? <Unlock size={18} /> : <Lock size={18} />} {isEditMode ? 'Edición' : 'Bloqueado'}</button>
+                            <div className="divider"></div>
+                            <button onClick={() => setModals(p => ({ ...p, createGroup: true }))} className="btn-secondary"><FolderPlus size={18} /> Grupo</button>
+                            {isEditMode && <button onClick={addRow} className="btn-secondary"><Layers size={18} /> Fila</button>}
+                            <button onClick={() => setModals(p => ({ ...p, createScreen: true }))} className="btn-primary"><Plus size={18} /> Pantalla</button>
                         </div>
-                        <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}>
-                            <button type="button" onClick={() => setInputs(p=>({...p, orientation:'horizontal'}))} className={`btn-secondary ${inputs.orientation === 'horizontal' ? 'btn-active-edit' : ''}`} style={{flex:1}}>Horizontal</button>
-                            <button type="button" onClick={() => setInputs(p=>({...p, orientation:'vertical'}))} className={`btn-secondary ${inputs.orientation === 'vertical' ? 'btn-active-edit' : ''}`} style={{flex:1}}>Vertical</button>
+                    </div>
+
+                    {groups.length > 0 && (
+                        <div className="groups-section">
+                            <div className="section-label">Grupos de Sincronización</div>
+                            <div className="groups-grid">{groups.map(g => (<GroupCard key={g.id} group={g} onClick={() => handleEntityClick(g, 'group')} onDelete={id => handleDeleteGroup(id)} />))}</div>
                         </div>
-                        <button type="submit" disabled={isCreating} className="btn-primary" style={{width:'100%', justifyContent:'center'}}>{isCreating ? <Loader className="spin-anim"/> : 'Crear'}</button>
-                    </form>
+                    )}
+
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={e => setActiveId(e.active.id)} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+                        <div className="board-container">
+                            {Object.keys(items).map(key => (
+                                <SortableRow key={key} id={key} activeId={activeId} items={items[key]} screensData={screensData} groups={groups} onScreenClick={s => handleEntityClick(s, 'screen')} isSelected={selectedRowId === key} onSelectRow={setSelectedRowId} isEditMode={isEditMode} onDeleteRow={requestDeleteRow} onEditScreen={s => { setEditingScreen(s); setModals(p => ({ ...p, editScreen: true })); }} onDeleteScreen={confirmDeleteScreen} />
+                            ))}
+                        </div>
+                        <DragOverlay dropAnimation={defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.6' } } })}>{activeId ? <div style={{ width: '180px', height: '100px', background: '#3b82f6', borderRadius: '16px', opacity: 0.8 }}></div> : null}</DragOverlay>
+                    </DndContext>
                 </div>
             </div>
-        )}
-        
-        {modals.createGroup && (
-            <div className="overlay-backdrop" onClick={() => !isCreating && setModals(p => ({...p, createGroup: false}))}><div className="modern-modal alert-box" onClick={e => e.stopPropagation()}><h3>Nuevo Grupo</h3><form onSubmit={handleCreateGroup}><input autoFocus type="text" placeholder="Nombre del Grupo" value={inputs.groupName} onChange={e => setInputs(p => ({...p, groupName: e.target.value}))} style={{width:'100%', padding:'12px', border:'1px solid #cbd5e1', borderRadius:'8px', marginBottom:'15px'}} /><button type="submit" disabled={isCreating} className="btn-primary" style={{width:'100%', justifyContent:'center'}}>{isCreating ? <Loader className="spin-anim"/> : 'Crear Grupo'}</button></form></div></div>
-        )}
 
-        {selectedEntity && (
-            <div className="overlay-backdrop" onClick={handleCloseModal}>
-                <div className="modal-wrapper-relative" onClick={e => e.stopPropagation()}>
-                    
-                    <button className="btn-close-floating" onClick={handleCloseModal}>
-                        <X size={20} strokeWidth={3} />
-                    </button>
+            {modals.createScreen && (
+                <div className="overlay-backdrop" onClick={() => !isCreating && setModals(p => ({ ...p, createScreen: false }))}>
+                    <div className="modern-modal alert-box" onClick={e => e.stopPropagation()}>
+                        <h3>Nueva Pantalla</h3>
+                        <form onSubmit={handleCreateScreen}>
+                            <input autoFocus type="text" placeholder="Nombre" value={inputs.screenName} onChange={e => setInputs(p => ({ ...p, screenName: e.target.value }))} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', marginBottom: '15px' }} />
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '5px' }}>Asignar a Grupo (Opcional)</label>
+                                <select value={inputs.selectedGroup} onChange={e => setInputs(p => ({ ...p, selectedGroup: e.target.value }))} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', background: 'white' }}>
+                                    <option value="">Ninguno</option>
+                                    {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                <button type="button" onClick={() => setInputs(p => ({ ...p, orientation: 'horizontal' }))} className={`btn-secondary ${inputs.orientation === 'horizontal' ? 'btn-active-edit' : ''}`} style={{ flex: 1 }}>Horizontal</button>
+                                <button type="button" onClick={() => setInputs(p => ({ ...p, orientation: 'vertical' }))} className={`btn-secondary ${inputs.orientation === 'vertical' ? 'btn-active-edit' : ''}`} style={{ flex: 1 }}>Vertical</button>
+                            </div>
+                            <button type="submit" disabled={isCreating} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>{isCreating ? <Loader className="spin-anim" /> : 'Crear'}</button>
+                        </form>
+                    </div>
+                </div>
+            )}
 
-                    <div className="modal-container">
-                        <div className="modal-left-panel">
-                            <div className="preview-container-wrapper">
-                                <div style={{padding:'20px', textAlign:'center', width:'100%'}}>
-                                    <h2 style={{margin:0, color:'white'}}>{selectedEntity.data.name}</h2>
-                                    <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', marginTop:'5px', opacity:0.7, fontSize:'13px', color:'white'}}>
-                                        {selectedEntity.type === 'screen' ? <><div style={{width:'8px', height:'8px', borderRadius:'50%', background: selectedEntity.data.status === 'online' ? '#4ade80' : '#f87171'}}></div>{selectedEntity.data.status === 'online' ? 'Online' : 'Offline'}</> : <><Layers size={14}/> <span>Grupo Sincronizado</span></>}
+            {modals.createGroup && (
+                <div className="overlay-backdrop" onClick={() => !isCreating && setModals(p => ({ ...p, createGroup: false }))}><div className="modern-modal alert-box" onClick={e => e.stopPropagation()}><h3>Nuevo Grupo</h3><form onSubmit={handleCreateGroup}><input autoFocus type="text" placeholder="Nombre del Grupo" value={inputs.groupName} onChange={e => setInputs(p => ({ ...p, groupName: e.target.value }))} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', marginBottom: '15px' }} /><button type="submit" disabled={isCreating} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>{isCreating ? <Loader className="spin-anim" /> : 'Crear Grupo'}</button></form></div></div>
+            )}
+
+            {selectedEntity && (
+                <div className="overlay-backdrop" onClick={handleCloseModal}>
+                    <div className="modal-wrapper-relative" onClick={e => e.stopPropagation()}>
+
+                        <button className="btn-close-floating" onClick={handleCloseModal}>
+                            <X size={20} strokeWidth={3} />
+                        </button>
+
+                        <div className="modal-container">
+                            <div className="modal-left-panel">
+                                <div className="preview-container-wrapper">
+                                    <div style={{ padding: '20px', textAlign: 'center', width: '100%' }}>
+                                        <h2 style={{ margin: 0, color: 'white' }}>{selectedEntity.data.name}</h2>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '5px', opacity: 0.7, fontSize: '13px', color: 'white' }}>
+                                            {selectedEntity.type === 'screen' ? <><div style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedEntity.data.status === 'online' ? '#4ade80' : '#f87171' }}></div>{selectedEntity.data.status === 'online' ? 'Online' : 'Offline'}</> : <><Layers size={14} /> <span>Grupo Sincronizado</span></>}
+                                        </div>
+                                    </div>
+                                    <div className={`preview-box ${selectedEntity.data.orientation === 'vertical' ? 'vertical' : 'horizontal'}`} onClick={() => setFullScreenPreview(true)}>
+                                        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.5)', borderRadius: '4px', padding: '4px', zIndex: 10 }}><Maximize2 size={16} color="white" /></div>
+                                        {playlist.length > 0 ? (
+                                            getActivePreviewContent()?.type === 'video' ?
+                                                <video src={getActivePreviewContent().url} autoPlay muted loop className={`preview-content ${selectedEntity.data.orientation === 'vertical' ? 'contain' : ''}`} /> :
+                                                <img src={getActivePreviewContent()?.url} className="preview-content" alt="" />
+                                        ) : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3, color: 'white' }}><Play size={40} /></div>}
                                     </div>
                                 </div>
-                                <div className={`preview-box ${selectedEntity.data.orientation === 'vertical' ? 'vertical' : 'horizontal'}`} onClick={() => setFullScreenPreview(true)}>
-                                    <div style={{position:'absolute', top:10, right:10, background:'rgba(0,0,0,0.5)', borderRadius:'4px', padding:'4px', zIndex:10}}><Maximize2 size={16} color="white"/></div>
-                                    {playlist.length > 0 ? (
-                                        getActivePreviewContent()?.type === 'video' ? 
-                                        <video src={getActivePreviewContent().url} autoPlay muted loop className={`preview-content ${selectedEntity.data.orientation === 'vertical' ? 'contain' : ''}`} /> : 
-                                        <img src={getActivePreviewContent()?.url} className="preview-content" alt=""/>
-                                    ) : <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', opacity:0.3, color:'white'}}><Play size={40}/></div>}
+                                {selectedEntity.type === 'screen' && !selectedEntity.data.group_id && <div className="hide-on-mobile-small" style={{ marginTop: '30px', width: '90%', padding: '20px', borderRadius: '12px', background: selectedEntity.data.status === 'online' ? 'transparent' : 'rgba(255,255,255,0.05)' }}>{selectedEntity.data.status === 'online' ? <div style={{ textAlign: 'center' }}><p style={{ color: '#4ade80', fontWeight: 'bold', marginBottom: '15px', fontSize: '14px' }}>● Pantalla Vinculada</p><button onClick={handleUnlinkTV} className="btn-danger-action"><Unlink size={18} /> Desvincular Dispositivo</button></div> : <><input type="text" placeholder="CÓDIGO TV" maxLength={4} value={inputs.pairingCode} onChange={e => setInputs(p => ({ ...p, pairingCode: e.target.value.toUpperCase() }))} style={{ width: '100%', padding: '10px', textAlign: 'center', marginBottom: '10px', background: 'transparent', border: '1px solid #475569', color: 'white', borderRadius: '8px' }} /><button onClick={handleLinkTV} disabled={isCreating} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>{isCreating ? <Loader className="spin-anim" /> : 'Vincular'}</button></>}</div>}
+                            </div>
+                            <div className="modal-right-panel">
+                                <div className="header-actions" style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', justifyContent: 'space-between' }}>
+                                    <h3 style={{ margin: 0, color: '#1e293b' }}>Contenido</h3>
+                                    {(!selectedEntity.data.group_id || selectedEntity.type === 'group') && <button onClick={handleSaveAllChanges} disabled={!hasUnsavedChanges || loaders.saving} className={`btn-primary ${!hasUnsavedChanges ? 'disabled' : ''}`} style={{ opacity: hasUnsavedChanges ? 1 : 0.5 }}>{loaders.saving ? <Loader className="spin-anim" /> : <Save size={18} />} Guardar</button>}
                                 </div>
-                            </div>
-                            {selectedEntity.type === 'screen' && !selectedEntity.data.group_id && <div className="hide-on-mobile-small" style={{marginTop:'30px', width:'90%', padding:'20px', borderRadius:'12px', background: selectedEntity.data.status === 'online' ? 'transparent' : 'rgba(255,255,255,0.05)'}}>{selectedEntity.data.status === 'online' ? <div style={{textAlign:'center'}}><p style={{color:'#4ade80', fontWeight:'bold', marginBottom:'15px', fontSize:'14px'}}>● Pantalla Vinculada</p><button onClick={handleUnlinkTV} className="btn-danger-action"><Unlink size={18}/> Desvincular Dispositivo</button></div> : <><input type="text" placeholder="CÓDIGO TV" maxLength={4} value={inputs.pairingCode} onChange={e => setInputs(p => ({...p, pairingCode: e.target.value.toUpperCase()}))} style={{width:'100%', padding:'10px', textAlign:'center', marginBottom:'10px', background:'transparent', border:'1px solid #475569', color:'white', borderRadius:'8px'}} /><button onClick={handleLinkTV} disabled={isCreating} className="btn-primary" style={{width:'100%', justifyContent:'center'}}>{isCreating ? <Loader className="spin-anim"/> : 'Vincular'}</button></>}</div>}
-                        </div>
-                        <div className="modal-right-panel">
-                            <div className="header-actions" style={{padding:'20px', borderBottom:'1px solid #e2e8f0', justifyContent:'space-between'}}>
-                                <h3 style={{margin:0, color:'#1e293b'}}>Contenido</h3>
-                                {(!selectedEntity.data.group_id || selectedEntity.type === 'group') && <button onClick={handleSaveAllChanges} disabled={!hasUnsavedChanges || loaders.saving} className={`btn-primary ${!hasUnsavedChanges ? 'disabled' : ''}`} style={{opacity: hasUnsavedChanges ? 1 : 0.5}}>{loaders.saving ? <Loader className="spin-anim"/> : <Save size={18}/>} Guardar</button>}
-                            </div>
-                            <div style={{flex:1, overflowY:'auto', padding:'20px'}}>
-                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={e => { const {active, over} = e; if(active.id !== over.id) setPlaylist(items => arrayMove(items, items.findIndex(i=>i.item_id===active.id), items.findIndex(i=>i.item_id===over.id))); }}>
-                                    <SortableContext items={playlist.map(p => p.item_id)} strategy={rectSortingStrategy}>
-                                        {playlist.map((item, i) => <SortablePlaylistItem key={item.item_id} index={i} item={item} onRemove={id => setPlaylist(p => p.filter(x => x.item_id !== id))} onUpdateDuration={(id, val) => setPlaylist(p => p.map(x => x.item_id === id ? {...x, custom_duration: val} : x))} />)}
-                                    </SortableContext>
-                                </DndContext>
-                            </div>
-                            
-                            {/* VISTA RÁPIDA DE BIBLIOTECA */}
-                            <div className="library-quick-view">
-                                <div className="library-header"><div className="library-title"><ImageIcon size={16} color="#64748b"/><span>Biblioteca Reciente</span><span style={{fontSize:'11px', color:'#94a3b8', fontWeight:'normal'}}>({availableMedia.length})</span></div><div style={{display:'flex', gap:'10px'}}><label className="btn-secondary" style={{padding:'6px 12px', fontSize:'12px', height:'auto'}}><Plus size={14}/> Subir<input type="file" hidden onChange={handleFileUploadQuick}/></label><button onClick={() => setIsLibraryOpen(true)} className="btn-view-all"><Grid size={14}/> Ver todo</button></div></div>
-                                <div className="quick-scroll-track">{availableMedia.slice(0, 5).map(m => (<div key={m.id} className="media-card" style={{minWidth:'120px', height:'100%'}} onClick={() => handleAddToPlaylistLocal(m.id)}><div className="media-card-thumb"><span className="media-type-badge">{m.type === 'video' ? 'VIDEO' : 'IMG'}</span>{m.type === 'video' ? <div className="video-overlay"><Play size={24} color="white" fill="white"/></div> : <img src={m.url} alt="media" />}<div className="btn-add-overlay"><Plus size={18}/></div></div><div className="media-card-footer">{m.name}</div></div>))}<div onClick={() => setIsLibraryOpen(true)} style={{minWidth:'100px', borderRadius:'10px', border:'2px dashed #cbd5e1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'#64748b', cursor:'pointer', gap:'5px', fontSize:'12px', fontWeight:'600'}}><Grid size={20}/>Ver todo</div></div>
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={e => { const { active, over } = e; if (active.id !== over.id) setPlaylist(items => arrayMove(items, items.findIndex(i => i.item_id === active.id), items.findIndex(i => i.item_id === over.id))); }}>
+                                        <SortableContext items={playlist.map(p => p.item_id)} strategy={rectSortingStrategy}>
+                                            {playlist.map((item, i) => <SortablePlaylistItem key={item.item_id} index={i} item={item} onRemove={id => setPlaylist(p => p.filter(x => x.item_id !== id))} onUpdateDuration={(id, val) => setPlaylist(p => p.map(x => x.item_id === id ? { ...x, custom_duration: val } : x))} />)}
+                                        </SortableContext>
+                                    </DndContext>
+                                </div>
+
+                                {/* VISTA RÁPIDA DE BIBLIOTECA */}
+                                <div className="library-quick-view">
+                                    <div className="library-header"><div className="library-title"><ImageIcon size={16} color="#64748b" /><span>Biblioteca Reciente</span><span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'normal' }}>({availableMedia.length})</span></div><div style={{ display: 'flex', gap: '10px' }}><label className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', height: 'auto' }}><Plus size={14} /> Subir<input type="file" hidden onChange={handleFileUploadQuick} /></label><button onClick={() => setIsLibraryOpen(true)} className="btn-view-all"><Grid size={14} /> Ver todo</button></div></div>
+                                    <div className="quick-scroll-track">{availableMedia.slice(0, 5).map(m => (<div key={m.id} className="media-card" style={{ minWidth: '120px', height: '100%' }} onClick={() => handleAddToPlaylistLocal(m.id)}><div className="media-card-thumb"><span className="media-type-badge">{m.type === 'video' ? 'VIDEO' : 'IMG'}</span>{m.type === 'video' ? <div className="video-overlay"><Play size={24} color="white" fill="white" /></div> : <img src={m.url} alt="media" />}<div className="btn-add-overlay"><Plus size={18} /></div></div><div className="media-card-footer">{m.name}</div></div>))}<div onClick={() => setIsLibraryOpen(true)} style={{ minWidth: '100px', borderRadius: '10px', border: '2px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', cursor: 'pointer', gap: '5px', fontSize: '12px', fontWeight: '600' }}><Grid size={20} />Ver todo</div></div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        )}
-        
-        {fullScreenPreview && <div className="preview-backdrop" onClick={() => setFullScreenPreview(false)}><div className={`tv-frame ${selectedEntity.data.orientation === 'vertical' ? 'vertical' : 'horizontal'}`} onClick={e => e.stopPropagation()}><button className="btn-close-preview" onClick={() => setFullScreenPreview(false)}><ArrowLeft size={18}/> Salir</button>{getActivePreviewContent() ? (getActivePreviewContent().type === 'video' ? <video src={getActivePreviewContent().url} autoPlay muted loop controls style={{width:'100%', height:'100%', objectFit:'contain'}} /> : <img src={getActivePreviewContent().url} alt="preview" style={{width:'100%', height:'100%', objectFit:'contain'}} />) : (<div style={{color:'white'}}>Sin contenido</div>)}</div></div>}
-        
-        <MediaLibraryModal 
-            isOpen={isLibraryOpen} 
-            onClose={() => setIsLibraryOpen(false)} 
-            clientId={id} 
-            clientName={client?.name}
-            onSelect={handleAddToPlaylistLocal} 
-            showToast={showToast}
-        />
+            )}
 
-        <CustomAlert config={alertConfig} onClose={closeAlert} />
-        <ToastNotification visible={toast.visible} message={toast.message} type={toast.type} />
-    </SidebarLayout>
-);
+            {fullScreenPreview && <div className="preview-backdrop" onClick={() => setFullScreenPreview(false)}><div className={`tv-frame ${selectedEntity.data.orientation === 'vertical' ? 'vertical' : 'horizontal'}`} onClick={e => e.stopPropagation()}><button className="btn-close-preview" onClick={() => setFullScreenPreview(false)}><ArrowLeft size={18} /> Salir</button>{getActivePreviewContent() ? (getActivePreviewContent().type === 'video' ? <video src={getActivePreviewContent().url} autoPlay muted loop controls style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <img src={getActivePreviewContent().url} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />) : (<div style={{ color: 'white' }}>Sin contenido</div>)}</div></div>}
+
+            <MediaLibraryModal
+                isOpen={isLibraryOpen}
+                onClose={() => setIsLibraryOpen(false)}
+                clientId={id}
+                clientName={client?.name}
+                onSelect={handleAddToPlaylistLocal}
+                showToast={showToast}
+            />
+
+            <CustomAlert config={alertConfig} onClose={closeAlert} />
+            <ToastNotification visible={toast.visible} message={toast.message} type={toast.type} />
+        </SidebarLayout>
+    );
 }

@@ -7,10 +7,10 @@ const NO_SLEEP_VIDEO_BASE64 = "data:video/mp4;base64,AAAAHGZ0eXPCisAAAAACdatzbW9
 
 export default function TVPlayer() {
     // Estados base
-    const [status, setStatus] = useState('loading'); 
+    const [status, setStatus] = useState('loading');
     const [pairingCode, setPairingCode] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
-    
+
     // Datos Playlist
     const [activePlaylist, setActivePlaylist] = useState([]);
     const [pendingPlaylist, setPendingPlaylist] = useState(null);
@@ -18,7 +18,7 @@ export default function TVPlayer() {
 
     // Transiciones y Control
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [previousIndex, setPreviousIndex] = useState(null); 
+    const [previousIndex, setPreviousIndex] = useState(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [hasInteracted, setHasInteracted] = useState(false);
 
@@ -50,7 +50,7 @@ export default function TVPlayer() {
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        
+
         // Limpieza general al desmontar componente
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -70,12 +70,12 @@ export default function TVPlayer() {
     };
 
     const enterFullscreenAndWakeLock = async () => {
-        setHasInteracted(true); 
+        setHasInteracted(true);
         try {
             const elem = document.documentElement;
             if (elem.requestFullscreen) await elem.requestFullscreen();
             await requestWakeLock();
-        } catch (err) {}
+        } catch (err) { }
     };
 
     // 3. FUNCIÓN DE CAMBIO DE DIAPOSITIVA (Estabilizada)
@@ -107,7 +107,7 @@ export default function TVPlayer() {
     // 4. LÓGICA PRINCIPAL DE REPRODUCCIÓN + SUPERVISOR (Watchdog)
     useEffect(() => {
         if (status !== 'playing' || activePlaylist.length === 0) return;
-        
+
         const item = activePlaylist[currentIndex];
         if (!item) return;
 
@@ -130,27 +130,27 @@ export default function TVPlayer() {
             watchdogRef.current = setInterval(() => {
                 const now = Date.now();
                 const timeDiff = now - lastSwitchTime.current;
-                
+
                 // Si llevamos 3 segundos más de lo que debería durar la imagen...
                 if (timeDiff > (durationMs + 3000)) {
                     console.warn("⚠️ ALERTA: Imagen trabada detectada. Forzando siguiente...");
-                    nextItem(); 
+                    nextItem();
                 }
             }, 2000);
         }
-        
+
         // B) SI ES VIDEO: No usamos timer aquí, dependemos del evento onEnded
         // Pero por seguridad, si el video dura 15s y lleva 25s, lo saltamos (por si falla onEnded)
         if (item.type === 'video') {
-             // Estimamos una duración máxima de seguridad (ej. 120 segundos o lo que diga la metadata)
-             // Si tus videos tienen duración en la BD, úsala. Si no, pon un límite alto.
-             const maxVideoDuration = 300 * 1000; // 5 minutos de seguridad
-             watchdogRef.current = setInterval(() => {
+            // Estimamos una duración máxima de seguridad (ej. 120 segundos o lo que diga la metadata)
+            // Si tus videos tienen duración en la BD, úsala. Si no, pon un límite alto.
+            const maxVideoDuration = 300 * 1000; // 5 minutos de seguridad
+            watchdogRef.current = setInterval(() => {
                 if (Date.now() - lastSwitchTime.current > maxVideoDuration) {
                     console.warn("⚠️ ALERTA: Video trabado (no lanzó onEnded). Forzando...");
                     nextItem();
                 }
-             }, 5000);
+            }, 5000);
         }
 
         return () => {
@@ -163,7 +163,7 @@ export default function TVPlayer() {
     // --- CACHÉ Y DATOS (Igual que antes) ---
     const cacheMedia = async (url) => {
         try {
-            if (window.location.protocol === 'https:' && url.startsWith('http:')) return url; 
+            if (window.location.protocol === 'https:' && url.startsWith('http:')) return url;
             const cache = await caches.open('tv-media-v1');
             const cachedRes = await cache.match(url);
             if (cachedRes) return URL.createObjectURL(await cachedRes.blob());
@@ -172,7 +172,7 @@ export default function TVPlayer() {
                 await cache.put(url, response.clone());
                 return URL.createObjectURL(await response.blob());
             }
-        } catch (e) {}
+        } catch (e) { }
         return url;
     };
 
@@ -189,7 +189,7 @@ export default function TVPlayer() {
             if (!token) return;
 
             const res = await api.get('/tv/playlist', { headers: { Authorization: `Bearer ${token}` } });
-            
+
             if (status === 'suspended' || status === 'offline') {
                 setStatus('loading');
                 setErrorMsg('');
@@ -209,21 +209,21 @@ export default function TVPlayer() {
                 }
                 setPlaylistHash(newHash);
             } else if (activePlaylist.length === 0 && serverData.length > 0) {
-                 const readyPlaylist = await processPlaylist(serverData);
-                 setActivePlaylist(readyPlaylist);
-                 setStatus('playing');
+                const readyPlaylist = await processPlaylist(serverData);
+                setActivePlaylist(readyPlaylist);
+                setStatus('playing');
             }
         } catch (error) {
             if (error.response?.status === 403) {
-                 const errorData = error.response.data;
-                 if (errorData.command === 'stop' || (errorData.error && errorData.error.toLowerCase().includes('suspendida'))) {
-                    setActivePlaylist([]); 
+                const errorData = error.response.data;
+                if (errorData.command === 'stop' || (errorData.error && errorData.error.toLowerCase().includes('suspendida'))) {
+                    setActivePlaylist([]);
                     setStatus('suspended');
                     setErrorMsg('Su servicio ha sido suspendido temporalmente.');
-                 } else {
+                } else {
                     localStorage.removeItem('device_token');
                     window.location.reload();
-                 }
+                }
             } else if (activePlaylist.length === 0) {
                 setStatus('offline');
             }
@@ -233,19 +233,27 @@ export default function TVPlayer() {
     const startPairingProcess = async () => {
         try {
             const res = await api.post('/tv/setup');
-            setPairingCode(res.data.code); 
+            setPairingCode(res.data.code);
             setStatus('pairing');
             pollRef.current = setInterval(async () => {
-                try { 
-                    const s = await api.get(`/tv/status/${res.data.code}`); 
-                    if (s.data.status === 'paired') { 
-                        localStorage.setItem('device_token', s.data.token); 
-                        clearInterval(pollRef.current); 
-                        window.location.reload(); 
-                    } 
-                } catch {}
+                try {
+                    // Add ?t=timestamp to bust Vercel's Edge Cache
+                    const s = await api.get(`/tv/status/${res.data.code}?t=${Date.now()}`);
+
+                    if (s.data.status === 'paired') {
+                        localStorage.setItem('device_token', s.data.token);
+                        clearInterval(pollRef.current);
+                        window.location.reload();
+                    } else if (s.data.status === 'error') {
+                        clearInterval(pollRef.current);
+                        setStatus('suspended'); // Or a new state if needed, using suspended to show errorMsg securely
+                        setErrorMsg(s.data.message || 'Error de vinculación');
+                    }
+                } catch (err) {
+                    console.error("Error en polling de TV:", err);
+                }
             }, 5000);
-        } catch (e) { 
+        } catch (e) {
             setStatus('offline');
             setErrorMsg('Error de conexión.');
         }
@@ -254,24 +262,24 @@ export default function TVPlayer() {
     // --- RENDERIZADO ---
     const renderMedia = (item, animationClass = '') => {
         if (!item) return null;
-        
+
         // Optimización: Si es una transición de salida (fadeOut), 
         // y el item es video, lo silenciamos para evitar conflictos de audio
         const isFadingOut = animationClass.includes('fadeOut');
 
         const content = item.type === 'video' ? (
-            <video 
+            <video
                 src={item.url} autoPlay muted={true} playsInline
                 // Importante: Solo el video activo (no el que se va) puede disparar nextItem
-                onEnded={!isFadingOut ? nextItem : undefined} 
-                style={styles.mediaFull} 
+                onEnded={!isFadingOut ? nextItem : undefined}
+                style={styles.mediaFull}
             />
         ) : (
             <img src={item.url} style={styles.mediaFull} alt="slide" />
         );
-        
+
         return (
-            <div key={`${item.item_id}-${animationClass}`} style={{...styles.layer, animation: animationClass}}>
+            <div key={`${item.item_id}-${animationClass}`} style={{ ...styles.layer, animation: animationClass }}>
                 {content}
             </div>
         );
@@ -290,8 +298,8 @@ export default function TVPlayer() {
         );
     }
 
-    if (status === 'loading') return <div style={styles.containerBlack}><Loader size={50} className="spin" color="#3b82f6"/></div>;
-    
+    if (status === 'loading') return <div style={styles.containerBlack}><Loader size={50} className="spin" color="#3b82f6" /></div>;
+
     if (status === 'suspended') return (
         <div style={styles.containerBlack}>
             <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '40px', borderRadius: '50%', marginBottom: '30px' }}>
@@ -301,46 +309,46 @@ export default function TVPlayer() {
             <p style={{ color: '#9ca3af' }}>{errorMsg}</p>
         </div>
     );
-    
-    if (status === 'offline') return <div style={styles.containerError}><WifiOff size={80} color="white"/><h1>Sin Conexión</h1><button onClick={() => window.location.reload()} style={styles.btnRetry}>Reconectar</button></div>;
-    
-    if (status === 'pairing') return <div style={styles.containerPairing}><div style={styles.codeBox}><p>Código:</p><h1 style={styles.bigCode}>{pairingCode}</h1><Loader size={20} className="spin"/></div><style>{`.spin { animation: spin 2s infinite linear; }`}</style></div>;
-    
-    if (status === 'empty') return <div style={styles.containerBlack}><CloudOff size={60} color="#64748b"/><h2>Sin Contenido</h2></div>;
+
+    if (status === 'offline') return <div style={styles.containerError}><WifiOff size={80} color="white" /><h1>Sin Conexión</h1><button onClick={() => window.location.reload()} style={styles.btnRetry}>Reconectar</button></div>;
+
+    if (status === 'pairing') return <div style={styles.containerPairing}><div style={styles.codeBox}><p>Código:</p><h1 style={styles.bigCode}>{pairingCode}</h1><Loader size={20} className="spin" /></div><style>{`.spin { animation: spin 2s infinite linear; }`}</style></div>;
+
+    if (status === 'empty') return <div style={styles.containerBlack}><CloudOff size={60} color="#64748b" /><h2>Sin Contenido</h2></div>;
 
     // VISTA PLAYING
     if (status === 'playing') {
         return (
             <div style={styles.playerContainer}>
                 {/* VIDEO HACK ANTISUSPENSIÓN */}
-                <video 
+                <video
                     src={NO_SLEEP_VIDEO_BASE64}
                     autoPlay loop muted playsInline
                     style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0.01, pointerEvents: 'none', zIndex: 0 }}
                 />
-                
+
                 {renderMedia(activePlaylist[currentIndex], isTransitioning ? 'fadeIn 1s forwards' : '')}
-                
+
                 {/* Solo renderizamos el anterior si estamos transicionando, para ahorrar memoria en TV */}
                 {isTransitioning && previousIndex !== null && renderMedia(activePlaylist[previousIndex], 'fadeOut 1s forwards')}
-                
+
                 <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }`}</style>
             </div>
         );
     }
-    
+
     return null;
 }
 
 const styles = {
     startOverlay: { position: 'fixed', inset: 0, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 9999 },
-    startBox: { textAlign: 'center', color: 'white', display:'flex', flexDirection:'column', alignItems:'center', gap:'20px' },
-    containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection:'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
+    startBox: { textAlign: 'center', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' },
+    containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
     codeBox: { background: 'rgba(255,255,255,0.05)', padding: '40px 60px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' },
     bigCode: { fontSize: '100px', margin: '10px 0', letterSpacing: '8px', fontWeight: '800', color: '#3b82f6' },
-    containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap:'20px' },
-    btnRetry: { background:'white', color:'#ef4444', border:'none', padding:'10px 20px', borderRadius:'8px', cursor:'pointer', fontWeight:'bold' },
-    containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color:'white' },
+    containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap: '20px' },
+    btnRetry: { background: 'white', color: '#ef4444', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+    containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' },
     playerContainer: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'black', overflow: 'hidden' },
     layer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
     mediaFull: { width: '100%', height: '100%', objectFit: 'contain' },
