@@ -45,8 +45,11 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        // Si el servidor nos rechaza (401 Unauthorized)
-        if (error.response && error.response.status === 401) {
+        // Rutas públicas que NO deben redireccionar al login si fallan con 401
+        const isTVRoute = error.config && error.config.url && error.config.url.startsWith('/tv');
+
+        // Si el servidor nos rechaza (401 Unauthorized) y NO es una ruta pública de TV
+        if (error.response && error.response.status === 401 && !isTVRoute) {
             console.warn('Acceso denegado o sesión expirada. Cerrando sesión...');
 
             // 1. Limpieza de datos locales
