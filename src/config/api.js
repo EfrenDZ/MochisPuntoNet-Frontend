@@ -2,9 +2,10 @@ import axios from 'axios';
 
 // ============================================================
 // 1. CONFIGURACIÓN BÁSICA
-// Usamos una variable de entorno, pero si falla, usamos la URL directa.
+// Forzamos la ruta relativa "/api" para que SIEMPRE pase por 
+// el Proxy Reverso de Vercel (Producción) y Vite (Local)
 // ============================================================
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = '/api';
 
 const api = axios.create({
     baseURL: API_URL,
