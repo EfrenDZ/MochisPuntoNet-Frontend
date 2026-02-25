@@ -237,9 +237,8 @@ export default function TVPlayer() {
             setStatus('pairing');
             pollRef.current = setInterval(async () => {
                 try {
-                    // Usamos POST en lugar de GET para el polling de estado
-                    // Esto evita radicalmente que Vercel guarde la respuesta en caché
-                    const s = await api.post('/tv/status', { code: res.data.code });
+                    // Revertimos a GET con fuerte cache-busting aleatorio porque Render no actualizó la ruta a POST
+                    const s = await api.get(`/tv/status/${res.data.code}?t=${Date.now()}&r=${Math.random()}`);
 
                     if (s.data.status === 'paired') {
                         localStorage.setItem('device_token', s.data.token);
