@@ -259,6 +259,10 @@ export default function TVPlayer() {
                     }
                 } catch (err) {
                     console.error("Error en polling de TV:", err);
+                    // Agrega esto para forzar que te muestre qué está fallando
+                    clearInterval(pollRef.current);
+                    setStatus('suspended');
+                    setErrorMsg('Fallo de red o servidor al consultar status');
                 }
             }, 5000);
         } catch (e) {
