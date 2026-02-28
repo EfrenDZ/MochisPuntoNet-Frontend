@@ -232,16 +232,26 @@ export default function TVPlayer() {
 
     const startPairingProcess = async () => {
         try {
-            const res = await api.post('/tv/setup');
-            setPairingCode(res.data.code);
+            // Recuperar o generar Device ID (UUID)
+            let deviceId = localStorage.getItem('device_id');
+            if (!deviceId) {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let randomStr = '';
+                for (let i = 0; i < 6; i++) {
+                    randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                deviceId = `TV-${randomStr}`;
+                localStorage.setItem('device_id', deviceId);
+            }
+
+            setPairingCode(deviceId);
             setStatus('pairing');
+
             pollRef.current = setInterval(async () => {
                 try {
-                    // Usamos POST en lugar de GET para el polling de estado
-                    // Esto evita radicalmente que Vercel guarde la respuesta en caché
-                    const s = await api.post('/tv/status', { code: res.data.code });
+                    const s = await api.post('/tv/status', { code: deviceId });
 
-                    console.log("[POLL TV STATUS] Código enviado:", res.data.code);
+                    console.log("[POLL TV STATUS] Código enviado:", deviceId);
                     console.log("[POLL TV STATUS] Respuesta recibida:", s.data);
 
                     if (s.data.status === 'paired') {
@@ -267,7 +277,7 @@ export default function TVPlayer() {
             }, 5000);
         } catch (e) {
             setStatus('offline');
-            setErrorMsg('Error de conexión.');
+            setErrorMsg('Error de inicialización de TV.');
         }
     };
 
@@ -357,7 +367,7 @@ const styles = {
     startBox: { textAlign: 'center', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' },
     containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
     codeBox: { background: 'rgba(255,255,255,0.05)', padding: '40px 60px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' },
-    bigCode: { fontSize: '100px', margin: '10px 0', letterSpacing: '8px', fontWeight: '800', color: '#3b82f6' },
+    bigCode: { fontSize: '70px', margin: '15px 0', letterSpacing: '4px', fontWeight: '800', color: '#3b82f6' },
     containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap: '20px' },
     btnRetry: { background: 'white', color: '#ef4444', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
     containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' },
