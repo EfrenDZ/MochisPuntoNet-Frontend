@@ -249,7 +249,7 @@ export default function TVPlayer() {
 
             pollRef.current = setInterval(async () => {
                 try {
-                    const s = await api.post('/tv/status', { code: deviceId });
+                    const s = await api.post(`/tv/status?t=${Date.now()}`, { code: deviceId });
 
                     console.log("[POLL TV STATUS] Código enviado:", deviceId);
                     console.log("[POLL TV STATUS] Respuesta recibida:", s.data);
