@@ -28,11 +28,18 @@ export default function TVPlayer() {
     const lastSwitchTime = useRef(Date.now()); // Marca de tiempo del último cambio
     const wakeLockRef = useRef(null);
     const pollRef = useRef(null);
+    const playlistHashRef = useRef('');
+    const activePlaylistRef = useRef([]);
+    const statusRef = useRef('loading');
+
+    useEffect(() => { statusRef.current = status; }, [status]);
+    useEffect(() => { activePlaylistRef.current = activePlaylist; }, [activePlaylist]);
 
     // 1. INICIALIZACIÓN
     useEffect(() => {
         const token = localStorage.getItem('device_token');
         if (token) {
+            requestWakeLock();
             checkForUpdates();
             // Revisar actualizaciones cada 30s
             const updateInterval = setInterval(checkForUpdates, 30000);
@@ -51,15 +58,20 @@ export default function TVPlayer() {
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // Limpieza general al desmontar componente
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             if (wakeLockRef.current) wakeLockRef.current.release();
+        };
+    }, [hasInteracted]);
+
+    // NUEVO: Limpieza global de intervalos SOLO cuando el componente se destruye por completo
+    useEffect(() => {
+        return () => {
             clearTimeout(timerRef.current);
             clearInterval(watchdogRef.current);
             clearInterval(pollRef.current);
         };
-    }, [hasInteracted]);
+    }, []);
 
     const requestWakeLock = async () => {
         if ('wakeLock' in navigator) {
@@ -190,26 +202,31 @@ export default function TVPlayer() {
 
             const res = await api.get('/tv/playlist', { headers: { Authorization: `Bearer ${token}` } });
 
-            if (status === 'suspended' || status === 'offline') {
+            const currentStatus = statusRef.current;
+            if (currentStatus === 'suspended' || currentStatus === 'offline') {
                 setStatus('loading');
                 setErrorMsg('');
             }
 
             const serverData = res.data || [];
             // Incluimos custom_duration en el hash para detectar cambios de tiempo
-            const newHash = JSON.stringify(serverData.map(i => i.item_id + i.display_order + i.custom_duration));
+            const newHash = JSON.stringify(serverData.map(i => `${i.item_id}-${i.display_order}-${i.custom_duration}`));
 
-            if (newHash !== playlistHash) {
+            if (newHash !== playlistHashRef.current) {
+                playlistHashRef.current = newHash;
+                setPlaylistHash(newHash);
+
                 const readyPlaylist = await processPlaylist(serverData);
-                if (activePlaylist.length === 0) {
+                if (activePlaylistRef.current.length === 0) {
+                    activePlaylistRef.current = readyPlaylist;
                     setActivePlaylist(readyPlaylist);
                     setStatus(readyPlaylist.length > 0 ? 'playing' : 'empty');
                 } else {
                     setPendingPlaylist(readyPlaylist);
                 }
-                setPlaylistHash(newHash);
-            } else if (activePlaylist.length === 0 && serverData.length > 0) {
+            } else if (activePlaylistRef.current.length === 0 && serverData.length > 0) {
                 const readyPlaylist = await processPlaylist(serverData);
+                activePlaylistRef.current = readyPlaylist;
                 setActivePlaylist(readyPlaylist);
                 setStatus('playing');
             }
@@ -217,6 +234,7 @@ export default function TVPlayer() {
             if (error.response?.status === 403) {
                 const errorData = error.response.data;
                 if (errorData.command === 'stop' || (errorData.error && errorData.error.toLowerCase().includes('suspendida'))) {
+                    activePlaylistRef.current = [];
                     setActivePlaylist([]);
                     setStatus('suspended');
                     setErrorMsg('Su servicio ha sido suspendido temporalmente.');
@@ -224,7 +242,7 @@ export default function TVPlayer() {
                     localStorage.removeItem('device_token');
                     window.location.reload();
                 }
-            } else if (activePlaylist.length === 0) {
+            } else if (activePlaylistRef.current.length === 0) {
                 setStatus('offline');
             }
         }
