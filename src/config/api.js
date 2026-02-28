@@ -23,9 +23,13 @@ const api = axios.create({
 // ============================================================
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        // Only attach the admin token if an Authorization header isn't already set.
+        // This prevents overwriting the device_token sent by the TVPlayer.
+        if (!config.headers.Authorization) {
+            const token = localStorage.getItem('token');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
         return config;
     },
