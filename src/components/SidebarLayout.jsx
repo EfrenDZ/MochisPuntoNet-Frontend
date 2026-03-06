@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 // 1. Agregamos 'Briefcase' para usarlo en Clientes
-import { LayoutDashboard, Users, LogOut, Menu, X, Briefcase } from 'lucide-react';
+import {
+  LayoutDashboard, Users, LogOut, Menu, X, Briefcase, Monitor, Image
+} from 'lucide-react';
 
 import logoMochis from '../assets/mochis_punto_net_logo.png';
 
@@ -171,24 +173,57 @@ export default function MainLayout({ children }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const userData = JSON.parse(localStorage.getItem('user') || '{}');
+  const userConfig = userData.clientConfig || {};
+  const primaryColor = userConfig.primary_color || '#3b82f6';
+  const logo = userConfig.logo_url || logoMochis;
+  const user = userData;
+  const clientSlug = localStorage.getItem('clientSlug');
+  const basePath = (user?.role === 'super_admin' || user?.role === 'super_agent') ? '' : `/${clientSlug}`;
+
+  const DYNAMIC_STYLES = `
+    .nav-item.active {
+      background-color: ${primaryColor}1a; /* 10% opacity roughly */
+      color: ${primaryColor};
+      font-weight: 600;
+    }
+  `;
+
   // 2. Definimos los iconos diferentes aquí
-  const menuItems = [
-    { 
-      icon: <LayoutDashboard size={18} />, 
-      label: 'Dashboard', 
-      path: '/dashboard' 
-    },
-    { 
-      icon: <Briefcase size={18} />, // Icono de Maletín para Clientes
-      label: 'Clientes', 
-      path: '/clients' 
-    },
-    { 
-      icon: <Users size={18} />,     // Icono de Usuarios para Equipo
-      label: 'Equipo', 
-      path: '/users' 
-    },
-  ];
+  const menuItems = [];
+
+  if (user?.role === 'super_admin' || user?.role === 'super_agent') {
+    menuItems.push({
+      icon: <LayoutDashboard size={18} />,
+      label: 'Dashboard',
+      path: `${basePath}/dashboard`
+    });
+    menuItems.push({
+      icon: <Briefcase size={18} />,
+      label: 'Clientes',
+      path: '/clients'
+    });
+  } else if (user?.client_id) {
+    menuItems.push({
+      icon: <Monitor size={18} />,
+      label: 'Pantallas',
+      path: `${basePath}/tvs`
+    });
+    menuItems.push({
+      icon: <Image size={18} />,
+      label: 'Biblioteca',
+      path: `${basePath}/media`
+    });
+  }
+
+  // Todos los administradores ven Equipo, excepto el super_agent y el client_agent
+  if (user?.role !== 'super_agent' && user?.role !== 'client_agent') {
+    menuItems.push({
+      icon: <Users size={18} />,
+      label: 'Equipo',
+      path: `${basePath}/users`
+    });
+  }
 
   const handleNavigation = (path) => {
     navigate(path);
@@ -196,29 +231,31 @@ export default function MainLayout({ children }) {
   };
 
   const handleLogout = () => {
+    const slug = localStorage.getItem('clientSlug');
     localStorage.clear();
-    navigate('/');
+    navigate(slug ? `/${slug}/login` : '/admin');
   };
 
   return (
     <div className="layout-container">
       <style>{STYLES}</style>
+      <style>{DYNAMIC_STYLES}</style>
 
       <header className="top-header">
-        
+
         {/* LOGO */}
-        <div className="logo-area" onClick={() => navigate('/dashboard')}>
-           <img 
-             src={logoMochis} 
-             alt="Mochis.Net Logo" 
-             style={{ height: '40px', objectFit: 'contain' }} 
-           />
+        <div className="logo-area" onClick={() => navigate(`${basePath}/dashboard`)}>
+          <img
+            src={logo}
+            alt="Logo"
+            style={{ height: '40px', objectFit: 'contain' }}
+          />
         </div>
 
         {/* NAVEGACIÓN ESCRITORIO (CENTRADA ABSOLUTAMENTE) */}
         <nav className="desktop-nav">
           {menuItems.map((item) => (
-            <div 
+            <div
               key={item.path}
               onClick={() => handleNavigation(item.path)}
               className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
@@ -238,8 +275,8 @@ export default function MainLayout({ children }) {
         </div>
 
         {/* MÓVIL */}
-        <button 
-          className="mobile-menu-btn" 
+        <button
+          className="mobile-menu-btn"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -249,7 +286,7 @@ export default function MainLayout({ children }) {
       {/* MENÚ MÓVIL */}
       <div className={`mobile-menu-dropdown ${isMobileMenuOpen ? 'open' : ''}`}>
         {menuItems.map((item) => (
-          <div 
+          <div
             key={item.path}
             onClick={() => handleNavigation(item.path)}
             className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}

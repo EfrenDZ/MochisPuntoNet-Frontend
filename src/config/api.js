@@ -23,14 +23,20 @@ const api = axios.create({
 // ============================================================
 api.interceptors.request.use(
     (config) => {
-        // Only attach the admin token if an Authorization header isn't already set.
-        // This prevents overwriting the device_token sent by the TVPlayer.
+        // 1. Añadimos el token si no existe
         if (!config.headers.Authorization) {
             const token = localStorage.getItem('token');
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
         }
+
+        // 2. Si estamos mandando FormData (ej. imágenes), dejamos que el navegador
+        // ponga automáticamente el Content-Type multipart/form-data con su boundary
+        if (config.data instanceof FormData) {
+            delete config.headers['Content-Type'];
+        }
+
         return config;
     },
     (error) => {
@@ -57,13 +63,14 @@ api.interceptors.response.use(
             console.warn('Acceso denegado o sesión expirada. Cerrando sesión...');
 
             // 1. Limpieza de datos locales
+            const slug = localStorage.getItem('clientSlug');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.removeItem('role');
 
-            // 2. Redirección forzada al Login
-            // Usamos window.location.href para asegurar una recarga limpia
-            if (window.location.pathname !== '/') {
-                window.location.href = '/';
+            // 2. Redirección forzada al Login (Solo si no estamos ya en una página de login)
+            if (window.location.pathname !== '/admin' && !window.location.pathname.endsWith('/login')) {
+                window.location.href = slug ? `/${slug}/login` : '/admin';
             }
         }
         return Promise.reject(error);

@@ -10,6 +10,7 @@ export default function TVPlayer() {
     const [status, setStatus] = useState('loading');
     const [pairingCode, setPairingCode] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
+    const [rotation, setRotation] = useState(0);
 
     // Datos Playlist
     const [activePlaylist, setActivePlaylist] = useState([]);
@@ -31,6 +32,7 @@ export default function TVPlayer() {
     const playlistHashRef = useRef('');
     const activePlaylistRef = useRef([]);
     const statusRef = useRef('loading');
+    const rotationRef = useRef(0);
 
     useEffect(() => { statusRef.current = status; }, [status]);
     useEffect(() => { activePlaylistRef.current = activePlaylist; }, [activePlaylist]);
@@ -202,6 +204,12 @@ export default function TVPlayer() {
 
             const res = await api.get('/tv/playlist', { headers: { Authorization: `Bearer ${token}` } });
 
+            const newRotation = parseInt(res.headers['x-tv-rotation'] || 0, 10);
+            if (newRotation !== rotationRef.current) {
+                rotationRef.current = newRotation;
+                setRotation(newRotation);
+            }
+
             const currentStatus = statusRef.current;
             if (currentStatus === 'suspended' || currentStatus === 'offline') {
                 setStatus('loading');
@@ -355,8 +363,16 @@ export default function TVPlayer() {
 
     // VISTA PLAYING
     if (status === 'playing') {
+        const isFlipped = rotation === 90 || rotation === 270;
+        const playerStyle = {
+            ...styles.playerContainer,
+            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+            width: isFlipped ? '100vh' : '100vw',
+            height: isFlipped ? '100vw' : '100vh',
+        };
+
         return (
-            <div style={styles.playerContainer}>
+            <div style={playerStyle}>
                 {/* VIDEO HACK ANTISUSPENSIÓN */}
                 <video
                     src={NO_SLEEP_VIDEO_BASE64}
@@ -386,7 +402,7 @@ const styles = {
     containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap: '20px' },
     btnRetry: { background: 'white', color: '#ef4444', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
     containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' },
-    playerContainer: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'black', overflow: 'hidden' },
+    playerContainer: { position: 'fixed', top: '50%', left: '50%', width: '100vw', height: '100vh', backgroundColor: 'black', overflow: 'hidden', transform: 'translate(-50%, -50%)' },
     layer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-    mediaFull: { width: '100%', height: '100%', objectFit: 'contain' },
+    mediaFull: { width: '100%', height: '100%', objectFit: 'cover' },
 };

@@ -296,7 +296,9 @@ const SortableRow = memo(({ id, items, screensData, groups, onScreenClick, isSel
 });
 
 export default function ClientDetails() {
-    const { id } = useParams();
+    const { id: urlId } = useParams();
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const id = urlId || storedUser.client_id;
     const [client, setClient] = useState(null);
     const [loading, setLoading] = useState(true);
     const [screensData, setScreensData] = useState([]);
@@ -359,13 +361,16 @@ export default function ClientDetails() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [clientRes, screensRes, mediaRes, groupsRes] = await Promise.all([
-                api.get(`/admin/clients/${id}`),
-                api.get(`/admin/screens?clientId=${id}`),
-                api.get(`/media/library?clientId=${id}`),
-                api.get(`/admin/groups?clientId=${id}`)
+            const clientRes = await api.get(`/admin/clients/${id}`);
+            const currentClient = clientRes.data;
+            setClient(currentClient);
+
+            const [screensRes, mediaRes, groupsRes] = await Promise.all([
+                api.get(`/admin/screens?clientId=${currentClient.id}`),
+                api.get(`/media/library?clientId=${currentClient.id}`),
+                api.get(`/admin/groups?clientId=${currentClient.id}`)
             ]);
-            setClient(clientRes.data);
+
             setScreensData(screensRes.data);
             setAvailableMedia(mediaRes.data);
             setGroups(groupsRes.data);
@@ -443,12 +448,12 @@ export default function ClientDetails() {
     const handleCreateScreen = async (e) => {
         e.preventDefault(); e.stopPropagation(); if (isCreating) return; setIsCreating(true);
         const cleanRowIndex = parseInt(selectedRowId.replace('container-', ''));
-        try { await api.post('/admin/screens', { clientId: id, name: inputs.screenName, orientation: inputs.orientation, row_index: cleanRowIndex, group_id: inputs.selectedGroup ? parseInt(inputs.selectedGroup) : null }); setModals(p => ({ ...p, createScreen: false })); setInputs(p => ({ ...p, screenName: '', selectedGroup: '' })); fetchData(); showToast('Pantalla creada'); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo crear pantalla'); } finally { setIsCreating(false); }
+        try { await api.post('/admin/screens', { clientId: client?.id || id, name: inputs.screenName, orientation: inputs.orientation, row_index: cleanRowIndex, group_id: inputs.selectedGroup ? parseInt(inputs.selectedGroup) : null }); setModals(p => ({ ...p, createScreen: false })); setInputs(p => ({ ...p, screenName: '', selectedGroup: '' })); fetchData(); showToast('Pantalla creada'); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo crear pantalla'); } finally { setIsCreating(false); }
     };
 
     const handleCreateGroup = async (e) => {
         e.preventDefault(); e.stopPropagation(); if (isCreating) return; setIsCreating(true);
-        try { await api.post('/admin/groups', { clientId: id, name: inputs.groupName }); setModals(p => ({ ...p, createGroup: false })); setInputs(p => ({ ...p, groupName: '' })); fetchData(); showToast('Grupo creado'); } catch (e) { console.error(e); } finally { setIsCreating(false); }
+        try { await api.post('/admin/groups', { clientId: client?.id || id, name: inputs.groupName }); setModals(p => ({ ...p, createGroup: false })); setInputs(p => ({ ...p, groupName: '' })); fetchData(); showToast('Grupo creado'); } catch (e) { console.error(e); } finally { setIsCreating(false); }
     };
 
     const handleDeleteGroup = useCallback((groupId) => { showAlert('danger', '¿Eliminar Grupo?', 'Las pantallas quedarán sueltas.', async () => { closeAlert(); try { await api.delete(`/admin/groups/${groupId}`); fetchData(); showToast('Grupo eliminado'); } catch (e) { console.error(e); } }); }, [fetchData, showAlert, closeAlert, showToast]);
@@ -458,9 +463,23 @@ export default function ClientDetails() {
     const handleLinkTV = async (e) => { e.preventDefault(); if (isCreating) return; setIsCreating(true); try { await api.post('/admin/screens/link', { screenId: selectedEntity.data.id, pairingCode: inputs.pairingCode }); fetchData(); showToast('Vinculado'); setSelectedEntity(prev => ({ ...prev, data: { ...prev.data, status: 'online' } })); } catch (e) { console.error(e); const errorMsg = e.response?.data?.error || 'Código inválido o ya vinculado'; showAlert('danger', 'Error', errorMsg); } finally { setIsCreating(false); } };
     const handleUnlinkTV = () => { showAlert('danger', 'Desvincular', 'La pantalla dejará de recibir contenido. ¿Seguro?', async () => { closeAlert(); try { await api.post('/admin/screens/unlink', { screenId: selectedEntity.data.id }); fetchData(); showToast('Desvinculado correctamente'); setSelectedEntity(prev => ({ ...prev, data: { ...prev.data, status: 'offline' } })); } catch (e) { console.error(e); showAlert('danger', 'Error', 'No se pudo desvincular'); } }); };
 
+    // Nueva función para rotar la TV
+    const handleUpdateRotation = async (rotation) => {
+        try {
+            await api.put(`/admin/screens/${selectedEntity.data.id}/rotation`, { rotation: parseInt(rotation) });
+            // Actualizar estado local
+            setSelectedEntity(prev => ({ ...prev, data: { ...prev.data, rotation: parseInt(rotation) } }));
+            fetchData(); // Refrescar la vista principal para que tenga el dato nuevo
+            showToast('Rotación actualizada');
+        } catch (e) {
+            console.error(e);
+            showAlert('danger', 'Error', 'No se pudo rotar la pantalla');
+        }
+    };
+
     const handleFileUploadQuick = async (e) => {
-        const file = e.target.files[0]; if (!file) return; setLoaders(p => ({ ...p, uploading: true })); const fd = new FormData(); const safeId = id ? String(id) : 'general'; fd.append('clientId', safeId); fd.append('file', file);
-        try { await api.post('/media/upload', fd, { headers: { "Content-Type": undefined } }); const res = await api.get(`/media/library?clientId=${id}`); setAvailableMedia(res.data); showToast('Archivo subido'); } catch (e) { const msg = e.response?.data?.error || 'Fallo al subir'; showAlert('danger', 'Error', msg); } finally { setLoaders(p => ({ ...p, uploading: false })); e.target.value = null; }
+        const file = e.target.files[0]; if (!file) return; setLoaders(p => ({ ...p, uploading: true })); const fd = new FormData(); const safeId = client?.id ? String(client.id) : (id ? String(id) : 'general'); fd.append('clientId', safeId); fd.append('file', file);
+        try { await api.post('/media/upload', fd, { headers: { "Content-Type": undefined } }); const res = await api.get(`/media/library?clientId=${client?.id || id}`); setAvailableMedia(res.data); showToast('Archivo subido'); } catch (e) { const msg = e.response?.data?.error || 'Fallo al subir'; showAlert('danger', 'Error', msg); } finally { setLoaders(p => ({ ...p, uploading: false })); e.target.value = null; }
     };
 
     const handleAddToPlaylistLocal = (mediaItem) => {
@@ -672,7 +691,39 @@ export default function ClientDetails() {
                                         ) : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3, color: 'white' }}><Play size={40} /></div>}
                                     </div>
                                 </div>
-                                {selectedEntity.type === 'screen' && !selectedEntity.data.group_id && <div className="hide-on-mobile-small" style={{ marginTop: '30px', width: '90%', padding: '20px', borderRadius: '12px', background: selectedEntity.data.status === 'online' ? 'transparent' : 'rgba(255,255,255,0.05)' }}>{selectedEntity.data.status === 'online' ? <div style={{ textAlign: 'center' }}><p style={{ color: '#4ade80', fontWeight: 'bold', marginBottom: '15px', fontSize: '14px' }}>● Pantalla Vinculada</p><button onClick={handleUnlinkTV} className="btn-danger-action"><Unlink size={18} /> Desvincular Dispositivo</button></div> : <><input type="text" placeholder="ID DE PANTALLA (Ej. TV-ABCDEF)" value={inputs.pairingCode} onChange={e => setInputs(p => ({ ...p, pairingCode: e.target.value.toUpperCase() }))} style={{ width: '100%', padding: '10px', textAlign: 'center', marginBottom: '10px', background: 'transparent', border: '1px solid #475569', color: 'white', borderRadius: '8px' }} /><button onClick={handleLinkTV} disabled={isCreating} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>{isCreating ? <Loader className="spin-anim" /> : 'Vincular'}</button></>}</div>}
+                                {selectedEntity.type === 'screen' && !selectedEntity.data.group_id && (
+                                    <>
+                                        {/* Ajustes extra */}
+                                        <div className="hide-on-mobile-small" style={{ marginTop: '20px', width: '90%', padding: '15px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Rotación TV:</span>
+                                            <select
+                                                value={selectedEntity.data.rotation || 0}
+                                                onChange={(e) => handleUpdateRotation(e.target.value)}
+                                                style={{ background: '#1e293b', color: 'white', border: '1px solid #475569', borderRadius: '6px', padding: '5px 10px', fontSize: '13px' }}
+                                            >
+                                                <option value={0}>0° (Normal)</option>
+                                                <option value={90}>90° (Izquierda)</option>
+                                                <option value={180}>180° (Invertido)</option>
+                                                <option value={270}>270° (Derecha)</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Estado de Vinculación */}
+                                        <div className="hide-on-mobile-small" style={{ marginTop: '10px', width: '90%', padding: '20px', borderRadius: '12px', background: selectedEntity.data.status === 'online' ? 'transparent' : 'rgba(255,255,255,0.05)' }}>
+                                            {selectedEntity.data.status === 'online' ?
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <p style={{ color: '#4ade80', fontWeight: 'bold', marginBottom: '15px', fontSize: '14px' }}>● Pantalla Vinculada</p>
+                                                    <button onClick={handleUnlinkTV} className="btn-danger-action"><Unlink size={18} /> Desvincular Dispositivo</button>
+                                                </div>
+                                                :
+                                                <>
+                                                    <input type="text" placeholder="ID DE PANTALLA (Ej. TV-ABCDEF)" value={inputs.pairingCode} onChange={e => setInputs(p => ({ ...p, pairingCode: e.target.value.toUpperCase() }))} style={{ width: '100%', padding: '10px', textAlign: 'center', marginBottom: '10px', background: 'transparent', border: '1px solid #475569', color: 'white', borderRadius: '8px' }} />
+                                                    <button onClick={handleLinkTV} disabled={isCreating} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>{isCreating ? <Loader className="spin-anim" /> : 'Vincular'}</button>
+                                                </>
+                                            }
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             <div className="modal-right-panel">
                                 <div className="header-actions" style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', justifyContent: 'space-between' }}>

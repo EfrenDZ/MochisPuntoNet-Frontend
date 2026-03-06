@@ -3,46 +3,50 @@ import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import MediaLibraryModal from '../components/MediaLibraryModal';
 import api from '../config/api';
-import { 
-    Users, Image, Bell, CheckCircle2, 
-    ChevronRight, WifiOff
+import {
+    Users, Image, Bell, CheckCircle2,
+    ChevronRight, WifiOff, Monitor
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState({ full_name: 'Admin' });
-  
-  const [stats, setStats] = useState({ clients: 0, screens: 0, online: 0, offline: 0 });
-  const [offlineScreens, setOfflineScreens] = useState([]); 
-  const [showMediaModal, setShowMediaModal] = useState(false);
+    const navigate = useNavigate();
+    const initialUser = JSON.parse(localStorage.getItem('user') || '{"role":"super_admin"}');
+    const [user, setUser] = useState(initialUser);
+    const isSuperAdmin = user.role === 'super_admin';
+    const clientSlug = localStorage.getItem('clientSlug');
+    const basePath = isSuperAdmin ? '' : `/${clientSlug}`;
 
-  useEffect(() => {
-    const u = JSON.parse(localStorage.getItem('user'));
-    if (u) setUser(u);
-    fetchData();
-  }, []);
+    const [stats, setStats] = useState({ clients: 0, screens: 0, online: 0, offline: 0 });
+    const [offlineScreens, setOfflineScreens] = useState([]);
+    const [showMediaModal, setShowMediaModal] = useState(false);
 
-  const fetchData = async () => {
-    try {
-      const resStats = await api.get('/admin/stats');
-      setStats(resStats.data);
-      
-      const resScreens = await api.get('/admin/screens'); 
-      
-      if (resScreens.data && Array.isArray(resScreens.data)) {
-          const list = resScreens.data.filter(s => s.status !== 'online');
-          setOfflineScreens(list);
-      }
-    } catch (error) {
-      console.error("Error cargando dashboard:", error);
-    }
-  };
+    useEffect(() => {
+        const u = JSON.parse(localStorage.getItem('user'));
+        if (u) setUser(u);
+        fetchData();
+    }, []);
 
-  const hasIssues = stats.offline > 0;
+    const fetchData = async () => {
+        try {
+            const resStats = await api.get('/admin/stats');
+            setStats(resStats.data);
 
-  return (
-    <SidebarLayout>
-      <style>{`
+            const resScreens = await api.get('/admin/screens');
+
+            if (resScreens.data && Array.isArray(resScreens.data)) {
+                const list = resScreens.data.filter(s => s.status !== 'online');
+                setOfflineScreens(list);
+            }
+        } catch (error) {
+            console.error("Error cargando dashboard:", error);
+        }
+    };
+
+    const hasIssues = stats.offline > 0;
+
+    return (
+        <SidebarLayout>
+            <style>{`
         /* --- NUEVO: Wrapper para el scroll invisible --- */
         .scroll-wrapper {
             height: 100vh; /* Ocupa toda la altura */
@@ -97,87 +101,101 @@ export default function Dashboard() {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
-      {/* Envolvemos todo el contenido en el div scroll-wrapper */}
-      <div className="scroll-wrapper">
-          <div className="dash-container">
-            
-            {/* HEADER */}
-            <div className="dash-header">
-                {/* Puedes poner un saludo aquí si quieres, o dejarlo vacío como estaba */}
-                
-                <div className={`status-pill ${hasIssues ? 'status-warn' : 'status-ok'}`}>
-                    {hasIssues ? (
-                        <><Bell size={16} /> {stats.offline} Pantallas Offline</>
-                    ) : (
-                        <><CheckCircle2 size={16} /> Todo operativo</>
+            {/* Envolvemos todo el contenido en el div scroll-wrapper */}
+            <div className="scroll-wrapper">
+                <div className="dash-container">
+
+                    {/* HEADER */}
+                    <div className="dash-header">
+                        {/* Puedes poner un saludo aquí si quieres, o dejarlo vacío como estaba */}
+
+                        <div className={`status-pill ${hasIssues ? 'status-warn' : 'status-ok'}`}>
+                            {hasIssues ? (
+                                <><Bell size={16} /> {stats.offline} Pantallas Offline</>
+                            ) : (
+                                <><CheckCircle2 size={16} /> Todo operativo</>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* HERO CARDS */}
+                    <div className="hero-grid">
+                        {isSuperAdmin ? (
+                            <div className="hero-card" onClick={() => navigate('/clients')}>
+                                <div style={{ position: 'relative', zIndex: 2 }}>
+                                    <div style={{ padding: '10px', background: '#eff6ff', width: 'fit-content', borderRadius: '10px', color: '#2563eb', marginBottom: '15px' }}>
+                                        <Users size={24} />
+                                    </div>
+                                    <div className="hero-title">Clientes</div>
+                                    <div className="hero-desc">Clientes: {stats.clients}</div>
+                                </div>
+                                <Users size={180} className="hero-icon-bg" color="#2563eb" />
+                                <div className="hero-arrow"><ChevronRight size={20} /></div>
+                            </div>
+                        ) : (
+                            <div className="hero-card" onClick={() => navigate(`${basePath}/clients/${user.client_id}`)}>
+                                <div style={{ position: 'relative', zIndex: 2 }}>
+                                    <div style={{ padding: '10px', background: '#eff6ff', width: 'fit-content', borderRadius: '10px', color: '#2563eb', marginBottom: '15px' }}>
+                                        <Monitor size={24} />
+                                    </div>
+                                    <div className="hero-title">Mis Pantallas</div>
+                                    <div className="hero-desc">Total pantallas: {stats.screens}</div>
+                                </div>
+                                <Monitor size={180} className="hero-icon-bg" color="#2563eb" />
+                                <div className="hero-arrow"><ChevronRight size={20} /></div>
+                            </div>
+                        )}
+
+                        <div className="hero-card" onClick={() => setShowMediaModal(true)}>
+                            <div style={{ position: 'relative', zIndex: 2 }}>
+                                <div style={{ padding: '10px', background: '#fffbeb', width: 'fit-content', borderRadius: '10px', color: '#d97706', marginBottom: '15px' }}>
+                                    <Image size={24} />
+                                </div>
+                                <div className="hero-title">Biblioteca Multimedia</div>
+                                <div className="hero-desc">Archivos en la nube: {stats.media}</div>
+                            </div>
+                            <Image size={180} className="hero-icon-bg" color="#d97706" />
+                            <div className="hero-arrow"><ChevronRight size={20} /></div>
+                        </div>
+                    </div>
+
+                    {/* LISTA DE PANTALLAS CON PROBLEMAS */}
+                    {hasIssues && offlineScreens.length > 0 && (
+                        <div className="alerts-section">
+                            <span className="section-label">TVs sin conexión ({offlineScreens.length})</span>
+                            {offlineScreens.map(screen => (
+                                <div key={screen.id} className="alert-item">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        <div style={{ padding: '8px', background: '#fee2e2', borderRadius: '50%', color: '#991b1b' }}>
+                                            <WifiOff size={18} />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                                {screen.name}
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                {screen.client_name || 'Sin asignar'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => navigate(isSuperAdmin ? '/clients' : `${basePath}/clients/${user.client_id}`)}
+                                        style={{ border: 'none', background: 'transparent', color: '#2563eb', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
+                                    >
+                                        Revisar
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* HERO CARDS */}
-            <div className="hero-grid">
-                <div className="hero-card" onClick={() => navigate('/clients')}>
-                    <div style={{ position: 'relative', zIndex: 2 }}>
-                        <div style={{ padding: '10px', background: '#eff6ff', width: 'fit-content', borderRadius: '10px', color: '#2563eb', marginBottom: '15px' }}>
-                            <Users size={24} />
-                        </div>
-                        <div className="hero-title">Clientes</div>
-                        <div className="hero-desc">Clientes: {stats.clients}</div>
-                    </div>
-                    <Users size={180} className="hero-icon-bg" color="#2563eb" />
-                    <div className="hero-arrow"><ChevronRight size={20} /></div>
-                </div>
-
-                <div className="hero-card" onClick={() => setShowMediaModal(true)}>
-                    <div style={{ position: 'relative', zIndex: 2 }}>
-                        <div style={{ padding: '10px', background: '#fffbeb', width: 'fit-content', borderRadius: '10px', color: '#d97706', marginBottom: '15px' }}>
-                            <Image size={24} />
-                        </div>
-                        <div className="hero-title">Biblioteca Multimedia</div>
-                        <div className="hero-desc">Archivos en la nube: {stats.media}</div>
-                    </div>
-                    <Image size={180} className="hero-icon-bg" color="#d97706" />
-                    <div className="hero-arrow"><ChevronRight size={20} /></div>
-                </div>
-            </div>
-
-            {/* LISTA DE PANTALLAS CON PROBLEMAS */}
-            {hasIssues && offlineScreens.length > 0 && (
-                <div className="alerts-section">
-                    <span className="section-label">TVs sin conexión ({offlineScreens.length})</span>
-                    {offlineScreens.map(screen => (
-                        <div key={screen.id} className="alert-item">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                <div style={{ padding: '8px', background: '#fee2e2', borderRadius: '50%', color: '#991b1b' }}>
-                                    <WifiOff size={18} />
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                                        {screen.name}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                        {screen.client_name || 'Sin asignar'}
-                                    </div>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => navigate('/clients')}
-                                style={{ border: 'none', background: 'transparent', color: '#2563eb', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
-                            >
-                                Revisar
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
-          </div>
-      </div>
-
-      <MediaLibraryModal 
-        isOpen={showMediaModal}
-        onClose={() => setShowMediaModal(false)}
-        clientId={null}
-      />
-    </SidebarLayout>
-  );
+            <MediaLibraryModal
+                isOpen={showMediaModal}
+                onClose={() => setShowMediaModal(false)}
+                clientId={null}
+            />
+        </SidebarLayout>
+    );
 }
