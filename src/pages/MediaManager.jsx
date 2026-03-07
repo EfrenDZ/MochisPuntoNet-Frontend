@@ -7,10 +7,10 @@ import {
   Trash2, Copy, Scissors, Clipboard, Pencil, X, ChevronRight, ChevronDown,
   MoreVertical, FolderPlus, RefreshCw, ArrowLeft, Home, Play, Eye
 } from 'lucide-react';
-import MediaPreviewModal from '../components/MediaPreviewModal'; // Asegúrate de que la ruta sea correcta
+import MediaPreviewModal from '../components/MediaPreviewModal';
 
 // ==============================
-// ESTILOS INLINE (Actualizados)
+// ESTILOS INLINE
 // ==============================
 const STYLES = `
   :root {
@@ -98,6 +98,10 @@ const STYLES = `
   .file-preview-btn { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 6px; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: white; opacity: 0; transition: 0.2s; z-index: 10; cursor: pointer; }
   .file-card:hover .file-preview-btn { opacity: 1; }
   .file-preview-btn:hover { background: var(--accent); border-color: var(--accent); transform: scale(1.1); }
+
+  .file-add-btn { position: absolute; top: 8px; right: 38px; width: 24px; height: 24px; border-radius: 6px; background: rgba(59, 130, 246, 0.9); backdrop-filter: blur(2px); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: white; opacity: 0; transition: 0.2s; z-index: 10; cursor: pointer; }
+  .file-card:hover .file-add-btn { opacity: 1; }
+  .file-add-btn:hover { background: var(--accent-hover); border-color: white; transform: scale(1.1); }
 
   /* SELECTION BAR */
   .selection-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #eff6ff; border-top: 1px solid #bfdbfe; color: var(--text); font-size: 13px; }
@@ -245,7 +249,7 @@ const TreeNode = ({ folder, allFolders, currentFolder, onNavigate, onDrop, onDra
 };
 
 // ==============================
-// COMPONENT: FileCard (Actualizado con Video y Botón de Preview)
+// COMPONENT: FileCard (Actualizado con Video, Preview y Añadir)
 // ==============================
 const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onSelect, onContextMenu, onDragStart, isEmbedded, onAdd, onPreview }) => {
   const isVideo = item.type?.startsWith('video') || item.url?.match(/\.(mp4|webm|ogg)$/i);
@@ -279,7 +283,7 @@ const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onS
   return (
     <div
       className={`file-card ${selected ? 'selected' : ''} ${isCut ? 'cut' : ''}`}
-      onClick={(e) => onSelect(item.id, e)}
+      onClick={(e) => onSelect(item.id, e)} // Solo selecciona, no envía
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, item); }}
       draggable
       onDragStart={(e) => onDragStart(e, item)}
@@ -293,6 +297,17 @@ const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onS
       >
         <Eye size={14} />
       </button>
+
+      {/* Botón Añadir a Playlist (solo si existe la función) */}
+      {onAdd && (
+        <button
+          className="file-add-btn"
+          onClick={(e) => { e.stopPropagation(); onAdd(item); }}
+          title="Añadir a la Playlist"
+        >
+          <Plus size={14} />
+        </button>
+      )}
 
       <div className="file-thumb-container">
         {renderThumbnail()}
@@ -326,7 +341,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   const [contextMenu, setContextMenu] = useState(null);
   const [modal, setModal] = useState(null);
   const [draggingOver, setDraggingOver] = useState(null);
-  const [previewItem, setPreviewItem] = useState(null); // Estado para el modal de previsualización
+  const [previewItem, setPreviewItem] = useState(null);
 
   const clientId = customClientId || getClientId();
   const superAdmin = customClientId ? false : isSuperAdmin();
@@ -372,17 +387,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     return () => window.removeEventListener('click', close);
   }, []);
 
-  useEffect(() => {
-    if (isEmbedded && onSelectMedia) {
-      if (selected.size === 1) {
-        const selectedId = Array.from(selected)[0];
-        const item = allMedia.find(m => m.id === selectedId);
-        onSelectMedia(item);
-      } else {
-        onSelectMedia(null);
-      }
-    }
-  }, [selected, isEmbedded, allMedia]);
+  // NOTA: Se eliminó el useEffect que enviaba automáticamente el archivo al seleccionarlo.
 
   let currentFolders = [];
   let visibleMedia = [];
@@ -762,6 +767,13 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
       {contextMenu && (
         <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }} onClick={e => e.stopPropagation()}>
           <div className="context-item" onClick={() => { setPreviewItem(contextMenu.item); setContextMenu(null); }}><Eye size={14} /> Previsualizar</div>
+
+          {onSelectMedia && (
+            <div className="context-item" style={{ color: '#3b82f6', fontWeight: 'bold' }} onClick={() => { onSelectMedia(contextMenu.item); setContextMenu(null); }}>
+              <Plus size={14} /> Añadir a Playlist
+            </div>
+          )}
+
           <div className="context-divider" />
           <div className="context-item" onClick={() => { copySelected(); setContextMenu(null); }}><Copy size={14} /> Copiar</div>
           <div className="context-item" onClick={() => { cutSelected(); setContextMenu(null); }}><Scissors size={14} /> Cortar</div>
