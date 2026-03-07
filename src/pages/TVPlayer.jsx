@@ -196,11 +196,23 @@ export default function TVPlayer() {
     };
 
     const processPlaylist = async (rawItems) => {
-        return Promise.all(rawItems.map(async (item) => {
+        const processed = await Promise.all(rawItems.map(async (item) => {
             const resolvedUrl = getMediaUrl(item.url);
             const localUrl = await cacheMedia(resolvedUrl);
             return { ...item, original_url: item.url, url: localUrl };
         }));
+
+        // ✨ EL TRUCO: Si solo hay 1 elemento, lo clonamos para forzar el crossfade
+        if (processed.length === 1) {
+            return [
+                processed[0],
+                // Creamos un clon exacto, pero con un ID diferente para que React 
+                // lo trate como un elemento distinto y aplique la transición
+                { ...processed[0], item_id: `${processed[0].item_id}_clone` }
+            ];
+        }
+
+        return processed;
     };
 
     const checkForUpdates = async () => {
@@ -374,6 +386,7 @@ export default function TVPlayer() {
 
     // VISTA PLAYING
     // VISTA PLAYING
+    // VISTA PLAYING
     if (status === 'playing') {
         const isFlipped = rotation === 90 || rotation === 270;
         const playerStyle = {
@@ -404,15 +417,67 @@ export default function TVPlayer() {
                     }}
                 />
 
-                {isTransitioning && previousIndex !== null &&
-                    renderMedia(activePlaylist[previousIndex], 'prev', '')}
+                {/* NUEVO SISTEMA DE RENDERIZADO MAP */}
+                {activePlaylist.map((item, index) => {
+                    const isCurrent = index === currentIndex;
+                    const isPrev = isTransitioning && index === previousIndex;
+                    // Identificamos el siguiente elemento para precargarlo
+                    const isNext = index === (currentIndex + 1) % activePlaylist.length;
 
-                {renderMedia(activePlaylist[currentIndex], 'curr', isTransitioning ? 'fadeIn 1s forwards' : '')}
+                    // Si no es el actual, ni el previo en transición, ni el siguiente, no lo montamos en el DOM
+                    if (!isCurrent && !isPrev && !isNext) return null;
+
+                    const isSingleItem = activePlaylist.length === 1;
+
+                    // 1. LÓGICA DE PRECARGA (isNext)
+                    // Lo ponemos en el DOM pero oculto, para que el navegador decodifique la imagen/video y evite el parpadeo
+                    if (isNext && !isCurrent && !isPrev) {
+                        return (
+                            <div key={item.item_id} style={{ ...styles.layer, opacity: 0, zIndex: -1 }}>
+                                {item.type === 'video' ? (
+                                    <video src={item.url} muted playsInline preload="auto" style={styles.mediaFull} />
+                                ) : (
+                                    <img src={item.url} style={styles.mediaFull} alt="preload" />
+                                )}
+                            </div>
+                        );
+                    }
+
+                    // 2. LÓGICA PARA EL ACTUAL (curr) Y ANTERIOR (prev)
+                    const animationClass = (isCurrent && isTransitioning) ? 'fadeIn 1s forwards' : '';
+                    const layerZIndex = isCurrent ? 2 : 1; // El actual siempre va por encima del previo
+
+                    return (
+                        <div
+                            key={item.item_id} // Clave estable, React no destruirá el nodo
+                            style={{
+                                ...styles.layer,
+                                zIndex: layerZIndex,
+                                animation: animationClass
+                            }}
+                        >
+                            {item.type === 'video' ? (
+                                <video
+                                    src={item.url}
+                                    autoPlay={isCurrent} // Solo hacemos autoplay si es la capa actual
+                                    muted={true}
+                                    playsInline
+                                    loop={isSingleItem}
+                                    // Evitamos que la capa previa dispare 'onEnded' por accidente
+                                    onEnded={(!isPrev && !isSingleItem) ? nextItem : undefined}
+                                    style={styles.mediaFull}
+                                />
+                            ) : (
+                                <img src={item.url} style={styles.mediaFull} alt="slide" />
+                            )}
+                        </div>
+                    );
+                })}
 
                 <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
             </div>
         );
-    } // <-- 1. Cierra el if de playing
+    }
 
     return null; // <-- 2. El fallback por si ningún status coincide
 } // <-- 3. ✨ ¡ESTA ES LA LLAVE MÁGICA QUE FALTABA PARA CERRAR TVPlayer! ✨
