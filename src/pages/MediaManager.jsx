@@ -5,8 +5,9 @@ import { getMediaUrl } from '../utils/getMediaUrl';
 import {
   Folder, FolderOpen, File, Image as ImageIcon, Film, Upload, Search, Plus,
   Trash2, Copy, Scissors, Clipboard, Pencil, X, ChevronRight, ChevronDown,
-  MoreVertical, FolderPlus, RefreshCw, ArrowLeft, Home, Play
+  MoreVertical, FolderPlus, RefreshCw, ArrowLeft, Home, Play, Eye
 } from 'lucide-react';
+import MediaPreviewModal from '../components/MediaPreviewModal'; // Asegúrate de que la ruta sea correcta
 
 // ==============================
 // ESTILOS INLINE (Actualizados)
@@ -94,6 +95,10 @@ const STYLES = `
   .file-checkbox { position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; border-radius: 6px; background: var(--accent); border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; opacity: 0; transition: 0.2s; z-index: 10;}
   .file-card:hover .file-checkbox, .file-card.selected .file-checkbox { opacity: 1; }
 
+  .file-preview-btn { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 6px; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: white; opacity: 0; transition: 0.2s; z-index: 10; cursor: pointer; }
+  .file-card:hover .file-preview-btn { opacity: 1; }
+  .file-preview-btn:hover { background: var(--accent); border-color: var(--accent); transform: scale(1.1); }
+
   /* SELECTION BAR */
   .selection-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #eff6ff; border-top: 1px solid #bfdbfe; color: var(--text); font-size: 13px; }
   .selection-bar-actions { display: flex; gap: 8px; margin-left: auto; }
@@ -159,11 +164,9 @@ const TreeNode = ({ folder, allFolders, currentFolder, onNavigate, onDrop, onDra
   const isActive = currentFolder === folder.id;
   const isDraggingOver = draggingOver === folder.id;
 
-  // Encontrar hijos directos de esta carpeta
   const children = allFolders.filter(f => f.parent_id === folder.id);
   const hasChildren = children.length > 0;
 
-  // Auto-expandir si el currentFolder está dentro de esta rama
   useEffect(() => {
     const isDescendantActive = (childrenArray) => {
       if (childrenArray.some(child => child.id === currentFolder)) return true;
@@ -195,7 +198,7 @@ const TreeNode = ({ folder, allFolders, currentFolder, onNavigate, onDrop, onDra
         style={{ paddingLeft: `${(depth * 16) + 8}px` }}
         onClick={handleClick}
         onDragOver={(e) => onDragOver(e, folder.id)}
-        onDragLeave={() => onDragOver(null, null)} // Pass null to reset
+        onDragLeave={() => onDragOver(null, null)}
         onDrop={(e) => onDrop(e, folder.id)}
       >
         <div className="folder-tree-icon-wrapper" onClick={hasChildren ? handleToggle : undefined}>
@@ -242,14 +245,13 @@ const TreeNode = ({ folder, allFolders, currentFolder, onNavigate, onDrop, onDra
 };
 
 // ==============================
-// COMPONENT: FileCard (Actualizado con Video)
+// COMPONENT: FileCard (Actualizado con Video y Botón de Preview)
 // ==============================
-const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onSelect, onContextMenu, onDragStart, isEmbedded, onAdd }) => {
+const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onSelect, onContextMenu, onDragStart, isEmbedded, onAdd, onPreview }) => {
   const isVideo = item.type?.startsWith('video') || item.url?.match(/\.(mp4|webm|ogg)$/i);
   const isImage = item.type?.startsWith('image') || item.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
   const isCut = inClipboard && clipboardAction === 'cut';
 
-  // Usamos un tag video para extraer el primer frame si no hay miniatura pre-generada
   const renderThumbnail = () => {
     if (isImage) {
       return <img src={getMediaUrl(item.url)} alt={item.name} className="file-thumb" loading="lazy" />;
@@ -259,7 +261,7 @@ const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onS
           <video
             src={getMediaUrl(item.url)}
             className="file-thumb"
-            preload="metadata" // Solo carga los metadatos para obtener el frame inicial
+            preload="metadata"
             muted
           />
           <div className="video-play-overlay">
@@ -284,6 +286,14 @@ const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onS
     >
       <div className="file-checkbox"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
 
+      <button
+        className="file-preview-btn"
+        onClick={(e) => { e.stopPropagation(); onPreview(item); }}
+        title="Previsualizar"
+      >
+        <Eye size={14} />
+      </button>
+
       <div className="file-thumb-container">
         {renderThumbnail()}
       </div>
@@ -306,24 +316,23 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   const [allMedia, setAllMedia] = useState([]);
   const [folders, setFolders] = useState([]);
   const [clients, setClients] = useState([]);
-  const [currentFolder, setCurrentFolder] = useState(null); // null = raíz
-  const [folderPath, setFolderPath] = useState([]); // breadcrumb stack
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [folderPath, setFolderPath] = useState([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(new Set());
-  const [clipboard, setClipboard] = useState({ items: [], action: null }); // copy | cut
+  const [clipboard, setClipboard] = useState({ items: [], action: null });
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [contextMenu, setContextMenu] = useState(null); // { x, y, item? }
-  const [modal, setModal] = useState(null); // { type: 'rename'|'createFolder'|'deleteConfirm', item?, value }
+  const [contextMenu, setContextMenu] = useState(null);
+  const [modal, setModal] = useState(null);
   const [draggingOver, setDraggingOver] = useState(null);
+  const [previewItem, setPreviewItem] = useState(null); // Estado para el modal de previsualización
 
   const clientId = customClientId || getClientId();
   const superAdmin = customClientId ? false : isSuperAdmin();
   const fileInputRef = useRef(null);
   const draggedIdRef = useRef(null);
 
-  // --- Mismos métodos de lógica (getEffectiveClientId, loadAll, handleSelect...) ---
-  // (Mantenemos toda tu lógica intacta para no romper nada de tu backend)
   const getEffectiveClientId = useCallback(() => {
     if (clientId) return clientId;
     if (typeof currentFolder === 'string' && currentFolder.startsWith('client_')) {
@@ -363,10 +372,8 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     return () => window.removeEventListener('click', close);
   }, []);
 
-  // Notificar al padre (Modal) cuando cambia la selección si está embebido
   useEffect(() => {
     if (isEmbedded && onSelectMedia) {
-      // Si hay un seleccionado, mandamos ese objeto. Si no, mandamos null
       if (selected.size === 1) {
         const selectedId = Array.from(selected)[0];
         const item = allMedia.find(m => m.id === selectedId);
@@ -375,10 +382,8 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
         onSelectMedia(null);
       }
     }
-  }, [selected, isEmbedded, allMedia]); // Quitamos onSelectMedia del arreglo de dependencias si causa loops
+  }, [selected, isEmbedded, allMedia]);
 
-
-  // ---- FILTERED MEDIA & FOLDERS ----
   let currentFolders = [];
   let visibleMedia = [];
 
@@ -406,7 +411,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     });
   }
 
-  // --- ACTIONS ---
   const handleSelect = (id, e) => {
     setSelected(prev => {
       const next = new Set(prev);
@@ -504,12 +508,11 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   const navigateToFolder = (folder) => {
     setCurrentFolder(folder?.id || null);
 
-    // Si la carpeta existe, construir el breadcrumb hacia atrás
     if (folder) {
       const newPath = [];
       let current = folder;
       while (current) {
-        newPath.unshift(current); // Agregar al inicio
+        newPath.unshift(current);
         current = folders.find(f => f.id === current.parent_id);
       }
       setFolderPath(newPath);
@@ -528,13 +531,12 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     setSelected(new Set());
   };
 
-  // --- DRAG & DROP ---
   const handleDragStart = (e, item) => {
     e.dataTransfer.setData('mediaId', String(item.id));
     e.dataTransfer.effectAllowed = 'move';
     draggedIdRef.current = item.id;
     if (!selected.has(item.id)) {
-      setSelected(new Set([item.id])); // Seleccionar solo este si no estaba seleccionado
+      setSelected(new Set([item.id]));
     }
   };
 
@@ -573,7 +575,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
   };
 
-  // --- RENDER HELPERS ---
   const Breadcrumb = () => (
     <div className="breadcrumb">
       <Home size={14} style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => { setCurrentFolder(null); setFolderPath([]); setSearch(''); }} />
@@ -592,9 +593,8 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   const isEmpty = currentFolders.length === 0 && visibleMedia.length === 0;
   const isSuperAdminRoot = superAdmin && currentFolder === null;
 
-  // Filtrar carpetas raíz para el árbol
   const rootFolders = useMemo(() => {
-    if (isSuperAdminRoot) return []; // No mostrar árbol si estamos en el root de admin
+    if (isSuperAdminRoot) return [];
 
     let activeClient = null;
     if (superAdmin) {
@@ -604,19 +604,15 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     return folders.filter(f => !f.parent_id && (superAdmin ? f.client_id === activeClient : true));
   }, [folders, superAdmin, currentFolder, isSuperAdminRoot]);
 
-
   const content = (
     <>
       <div className="explorer-root" style={isEmbedded ? { height: '100%', border: 'none', borderRadius: '0' } : {}}>
-        {/* ===== PANEL IZQUIERDO (Árbol Recursivo) ===== */}
         {!isSuperAdminRoot && (
           <div className="sidebar-panel">
             <div className="sidebar-header">
               <div className="sidebar-title">Carpetas</div>
             </div>
             <div className="sidebar-folders">
-
-              {/* Inicio (Root) */}
               <div
                 className={`folder-tree-item ${currentFolder === null ? 'active' : ''}`}
                 style={{ paddingLeft: '8px' }}
@@ -631,7 +627,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
 
               <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }}></div>
 
-              {/* Árbol de Carpetas */}
               {rootFolders.map(folder => (
                 <TreeNode
                   key={folder.id}
@@ -647,7 +642,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
                 />
               ))}
 
-              {/* Botón Nueva Carpeta en el Sidebar */}
               <div style={{ height: '1px', background: 'var(--border)', margin: '12px 0 8px 0' }}></div>
               <div
                 className="folder-tree-item"
@@ -660,9 +654,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
           </div>
         )}
 
-        {/* ===== PANEL DERECHO (Archivos) ===== */}
         <div className="main-panel">
-          {/* Toolbar */}
           <div className="toolbar">
             {folderPath.length > 0 && (
               <button className="btn btn-icon" onClick={navigateBack} title="Volver">
@@ -698,7 +690,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
 
           <Breadcrumb />
 
-          {/* Selection bar */}
           {selected.size > 0 && (
             <div className="selection-bar">
               <span style={{ fontWeight: 500 }}>{selected.size} elemento(s) seleccionado(s)</span>
@@ -716,7 +707,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
             </div>
           )}
 
-          {/* Files area */}
           <div className="files-area" onClick={(e) => { if (e.target === e.currentTarget) setSelected(new Set()); }}>
             {loading ? (
               <div className="loading-spinner">Cargando...</div>
@@ -731,7 +721,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
               <div className="empty-state"><Search size={48} /><span>Sin resultados para "{search}"</span></div>
             ) : (
               <div className="files-grid">
-                {/* CARPETAS (Vista Principal) */}
                 {currentFolders.map(folder => (
                   <div
                     key={`folder-${folder.id}`}
@@ -749,7 +738,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
                   </div>
                 ))}
 
-                {/* ARCHIVOS */}
                 {visibleMedia.map(item => (
                   <FileCard
                     key={item.id}
@@ -762,6 +750,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
                     onDragStart={handleDragStart}
                     isEmbedded={isEmbedded}
                     onAdd={onSelectMedia}
+                    onPreview={setPreviewItem}
                   />
                 ))}
               </div>
@@ -770,9 +759,10 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
         </div>
       </div>
 
-      {/* ===== CONTEXT MENU ===== */}
       {contextMenu && (
         <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }} onClick={e => e.stopPropagation()}>
+          <div className="context-item" onClick={() => { setPreviewItem(contextMenu.item); setContextMenu(null); }}><Eye size={14} /> Previsualizar</div>
+          <div className="context-divider" />
           <div className="context-item" onClick={() => { copySelected(); setContextMenu(null); }}><Copy size={14} /> Copiar</div>
           <div className="context-item" onClick={() => { cutSelected(); setContextMenu(null); }}><Scissors size={14} /> Cortar</div>
           {clipboard.items.length > 0 && <div className="context-item" onClick={() => { paste(); setContextMenu(null); }}><Clipboard size={14} /> Pegar</div>}
@@ -783,7 +773,13 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
         </div>
       )}
 
-      {/* ===== MODALS ===== */}
+      {/* ===== PREVIEW MODAL ===== */}
+      <MediaPreviewModal
+        isOpen={!!previewItem}
+        item={previewItem}
+        onClose={() => setPreviewItem(null)}
+      />
+
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
