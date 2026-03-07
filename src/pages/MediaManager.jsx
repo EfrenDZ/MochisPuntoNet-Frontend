@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import SidebarLayout from '../components/SidebarLayout';
 import api from '../config/api';
 import { getMediaUrl } from '../utils/getMediaUrl';
 import {
-  Folder, FolderOpen, File, Image, Film, Upload, Search, Plus,
-  Trash2, Copy, Scissors, Clipboard, Pencil, X, ChevronRight,
-  MoreVertical, FolderPlus, RefreshCw, ArrowLeft, Home
+  Folder, FolderOpen, File, Image as ImageIcon, Film, Upload, Search, Plus,
+  Trash2, Copy, Scissors, Clipboard, Pencil, X, ChevronRight, ChevronDown,
+  MoreVertical, FolderPlus, RefreshCw, ArrowLeft, Home, Play
 } from 'lucide-react';
 
 // ==============================
-// ESTILOS INLINE
+// ESTILOS INLINE (Actualizados)
 // ==============================
 const STYLES = `
   :root {
@@ -18,28 +18,33 @@ const STYLES = `
     --card-bg: #f8fafc;
     --border: #e2e8f0;
     --text: #1e293b;
-    --text-muted: #94a3b8;
+    --text-muted: #64748b;
     --accent: #3b82f6;
     --accent-hover: #2563eb;
     --danger: #ef4444;
     --success: #22c55e;
-    --selected: rgba(59,130,246,0.10);
+    --selected: #eff6ff;
     --drag-over: rgba(59,130,246,0.18);
   }
 
   .explorer-root { display: flex; height: calc(100vh - 80px); background: var(--explorer-bg); border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
 
   /* PANEL IZQUIERDO */
-  .sidebar-panel { width: 220px; min-width: 180px; background: var(--panel-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-panel { width: 260px; min-width: 220px; background: var(--panel-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
   .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
   .sidebar-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
   .sidebar-folders { flex: 1; overflow-y: auto; padding: 8px; }
-  .folder-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--text); font-size: 13px; transition: 0.15s; position: relative; }
-  .folder-item:hover { background: rgba(255,255,255,0.06); }
-  .folder-item.active { background: var(--selected); color: var(--accent); }
-  .folder-item.drag-over { background: var(--drag-over) !important; border: 1px dashed var(--accent); }
-  .folder-delete-btn { position: absolute; right: 6px; opacity: 0; background: none; border: none; color: var(--danger); cursor: pointer; padding: 2px 4px; border-radius: 4px; }
-  .folder-item:hover .folder-delete-btn { opacity: 1; }
+  
+  /* ESTILOS NUEVOS PARA CARPETAS RECURSIVAS */
+  .folder-tree-item { display: flex; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; color: var(--text); font-size: 13px; transition: all 0.2s ease; position: relative; user-select: none; margin-bottom: 2px;}
+  .folder-tree-item:hover { background: #f8fafc; }
+  .folder-tree-item.active { background: var(--selected); color: var(--accent); font-weight: 500;}
+  .folder-tree-item.drag-over { background: var(--drag-over) !important; border: 1px dashed var(--accent); }
+  .folder-tree-icon-wrapper { width: 20px; display: flex; justify-content: center; align-items: center; color: var(--text-muted); }
+  .folder-tree-icon-wrapper:hover { color: var(--text); }
+  .folder-delete-btn { position: absolute; right: 6px; opacity: 0; background: none; border: none; color: var(--danger); cursor: pointer; padding: 4px; border-radius: 4px; display:flex; align-items:center; justify-content:center;}
+  .folder-tree-item:hover .folder-delete-btn { opacity: 1; }
+  .folder-delete-btn:hover { background: #fee2e2; }
 
   /* PANEL DERECHO */
   .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -54,7 +59,7 @@ const STYLES = `
   .btn-primary:hover { background: var(--accent-hover); }
   .btn-secondary { background: white; color: var(--text); border: 1px solid var(--border); }
   .btn-secondary:hover { background: #f8fafc; }
-  .btn-icon { background: white; color: var(--text); border: 1px solid var(--border); padding: 7px 10px; }
+  .btn-icon { background: white; color: var(--text); border: 1px solid var(--border); padding: 7px 10px; border-radius: 8px; cursor: pointer;}
   .btn-icon:hover { background: #f8fafc; }
 
   /* BREADCRUMB */
@@ -65,44 +70,52 @@ const STYLES = `
 
   /* GRID DE ARCHIVOS */
   .files-area { flex: 1; overflow-y: auto; padding: 16px; }
-  .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
   
-  .file-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; transition: 0.15s; position: relative; user-select: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-  .file-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.12); }
-  .file-card.selected { border-color: var(--accent); background: var(--selected); }
+  .file-card { background: var(--panel-bg); border: 2px solid transparent; border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.2s ease; position: relative; user-select: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; aspect-ratio: 1; }
+  .file-card:hover { border-color: rgba(59,130,246,0.3); transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+  .file-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 10px 15px -3px rgba(59,130,246,0.2); }
   .file-card.dragging { opacity: 0.5; }
-  .file-card.cut { opacity: 0.5; border-style: dashed; }
+  .file-card.cut { opacity: 0.5; border-style: dashed; border-color: var(--border); }
 
-  .file-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; background: #f1f5f9; }
-  .file-thumb-placeholder { width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; background: #f1f5f9; color: var(--text-muted); }
-  .file-thumb video { width: 100%; height: 100%; object-fit: cover; }
-  .file-info { padding: 8px; background: white; }
-  .file-name { font-size: 12px; color: var(--text); font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .file-type-badge { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
-  .file-checkbox { position: absolute; top: 6px; left: 6px; width: 16px; height: 16px; border-radius: 4px; background: var(--accent); border: none; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; opacity: 0; transition: 0.15s; }
+  .file-thumb-container { position: relative; flex: 1; width: 100%; overflow: hidden; background: #f1f5f9; display: flex; align-items: center; justify-content: center;}
+  .file-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  
+  /* ESTILOS PARA EL BOTÓN DE PLAY EN VIDEOS */
+  .video-play-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+  .video-play-btn { background: rgba(59, 130, 246, 0.9); color: white; padding: 12px; border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transform: scale(0.9); transition: all 0.2s ease; display:flex; align-items:center; justify-content:center;}
+  .file-card:hover .video-play-overlay { background: rgba(0,0,0,0.3); }
+  .file-card:hover .video-play-btn { transform: scale(1.1); background: var(--accent); }
+
+  .file-info { padding: 10px; background: white; border-top: 1px solid var(--border); height: 50px; display:flex; flex-direction: column; justify-content:center;}
+  .file-name { font-size: 13px; color: var(--text); font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .file-type-badge { display:flex; align-items:center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-top: 2px;}
+  
+  .file-checkbox { position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; border-radius: 6px; background: var(--accent); border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; opacity: 0; transition: 0.2s; z-index: 10;}
   .file-card:hover .file-checkbox, .file-card.selected .file-checkbox { opacity: 1; }
 
   /* SELECTION BAR */
-  .selection-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: rgba(59,130,246,0.12); border-top: 1px solid var(--accent); color: var(--text); font-size: 13px; }
+  .selection-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #eff6ff; border-top: 1px solid #bfdbfe; color: var(--text); font-size: 13px; }
   .selection-bar-actions { display: flex; gap: 8px; margin-left: auto; }
 
   /* CONTEXT MENU */
-  .context-menu { position: fixed; background: white; border: 1px solid var(--border); border-radius: 10px; padding: 6px; z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,0.12); min-width: 180px; }
+  .context-menu { position: fixed; background: white; border: 1px solid var(--border); border-radius: 10px; padding: 6px; z-index: 9999; box-shadow: 0 10px 25px rgba(0,0,0,0.1); min-width: 180px; }
   .context-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text); transition: 0.1s; }
   .context-item:hover { background: #f8fafc; }
   .context-item.danger { color: var(--danger); }
   .context-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
   /* MODAL */
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 10000; }
   .modal-box { background: white; border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
   .modal-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
   .modal-input { width: 100%; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px; outline: none; box-sizing: border-box; }
   .modal-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
-  .upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; color: var(--text-muted); cursor: pointer; transition: 0.2s; margin: 0; display: block; }
-  .upload-zone:hover { border-color: var(--accent); color: var(--accent); }
+  /* ZONA SUBIDA Y ESTADOS VACÍOS */
+  .upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; color: var(--text-muted); cursor: pointer; transition: 0.2s; margin: 0; display: block; background: #f8fafc;}
+  .upload-zone:hover { border-color: var(--accent); color: var(--accent); background: #eff6ff;}
   .upload-zone-title { font-weight: 600; color: var(--text); margin-bottom: 4px; font-size: 14px; }
   .upload-zone-sub { font-size: 13px; color: var(--text-muted); }
   .upload-zone input { display: none; }
@@ -111,19 +124,18 @@ const STYLES = `
   .folder-card:hover { border-color: var(--accent); background: var(--selected); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.10); }
   .folder-card.drag-over-card { border-color: var(--accent); background: var(--drag-over); border-style: dashed; }
   .folder-card-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; word-break: break-word; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .folder-card-del { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; opacity: 0; transition: 0.15s; flex-shrink: 0; display: flex; align-items: center; }
+  .folder-card-del { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; opacity: 0; transition: 0.15s; flex-shrink: 0; display: flex; align-items: center; }
   .folder-card:hover .folder-card-del { opacity: 1; }
   .folder-card-del:hover { color: var(--danger); background: #fee2e2; }
 
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: var(--text-muted); gap: 12px; }
   .empty-state svg { opacity: 0.3; }
-
   .loading-spinner { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--text-muted); }
 
   @media (max-width: 640px) {
-    .sidebar-panel { width: 0; min-width: 0; overflow: hidden; }
+    .sidebar-panel { width: 0; min-width: 0; overflow: hidden; border:none;}
     .explorer-root { border-radius: 8px; }
-    .files-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+    .files-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   }
 `;
 
@@ -140,11 +152,127 @@ const isSuperAdmin = () => {
 };
 
 // ==============================
-// COMPONENT: FileCard
+// COMPONENT: TreeNode (Carpeta Recursiva)
+// ==============================
+const TreeNode = ({ folder, allFolders, currentFolder, onNavigate, onDrop, onDragOver, draggingOver, onDelete, depth = 0 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isActive = currentFolder === folder.id;
+  const isDraggingOver = draggingOver === folder.id;
+
+  // Encontrar hijos directos de esta carpeta
+  const children = allFolders.filter(f => f.parent_id === folder.id);
+  const hasChildren = children.length > 0;
+
+  // Auto-expandir si el currentFolder está dentro de esta rama
+  useEffect(() => {
+    const isDescendantActive = (childrenArray) => {
+      if (childrenArray.some(child => child.id === currentFolder)) return true;
+      return childrenArray.some(child => {
+        const grandChildren = allFolders.filter(f => f.parent_id === child.id);
+        return isDescendantActive(grandChildren);
+      });
+    };
+    if (hasChildren && isDescendantActive(children)) {
+      setIsExpanded(true);
+    }
+  }, [currentFolder, children, allFolders, hasChildren]);
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    onNavigate(folder);
+    if (hasChildren && !isExpanded) setIsExpanded(true);
+  };
+
+  return (
+    <div>
+      <div
+        className={`folder-tree-item ${isActive ? 'active' : ''} ${isDraggingOver ? 'drag-over' : ''}`}
+        style={{ paddingLeft: `${(depth * 16) + 8}px` }}
+        onClick={handleClick}
+        onDragOver={(e) => onDragOver(e, folder.id)}
+        onDragLeave={() => onDragOver(null, null)} // Pass null to reset
+        onDrop={(e) => onDrop(e, folder.id)}
+      >
+        <div className="folder-tree-icon-wrapper" onClick={hasChildren ? handleToggle : undefined}>
+          {hasChildren ? (
+            isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+          ) : <span style={{ width: '14px' }}></span>}
+        </div>
+
+        {isExpanded && hasChildren ? <FolderOpen size={16} style={{ marginRight: '8px', color: isActive ? 'var(--accent)' : 'inherit' }} /> : <Folder size={16} style={{ marginRight: '8px', color: isActive ? 'var(--accent)' : 'inherit' }} />}
+
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {folder.name}
+        </span>
+
+        <button
+          className="folder-delete-btn"
+          onClick={e => { e.stopPropagation(); onDelete(folder.id); }}
+          title="Eliminar carpeta"
+        >
+          <X size={12} />
+        </button>
+      </div>
+
+      {isExpanded && hasChildren && (
+        <div className="folder-tree-children">
+          {children.map(childFolder => (
+            <TreeNode
+              key={childFolder.id}
+              folder={childFolder}
+              allFolders={allFolders}
+              currentFolder={currentFolder}
+              onNavigate={onNavigate}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              draggingOver={draggingOver}
+              onDelete={onDelete}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ==============================
+// COMPONENT: FileCard (Actualizado con Video)
 // ==============================
 const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onSelect, onContextMenu, onDragStart, isEmbedded, onAdd }) => {
-  const isImage = item.type === 'image';
+  const isVideo = item.type?.startsWith('video') || item.url?.match(/\.(mp4|webm|ogg)$/i);
+  const isImage = item.type?.startsWith('image') || item.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
   const isCut = inClipboard && clipboardAction === 'cut';
+
+  // Usamos un tag video para extraer el primer frame si no hay miniatura pre-generada
+  const renderThumbnail = () => {
+    if (isImage) {
+      return <img src={getMediaUrl(item.url)} alt={item.name} className="file-thumb" loading="lazy" />;
+    } else if (isVideo) {
+      return (
+        <>
+          <video
+            src={getMediaUrl(item.url)}
+            className="file-thumb"
+            preload="metadata" // Solo carga los metadatos para obtener el frame inicial
+            muted
+          />
+          <div className="video-play-overlay">
+            <div className="video-play-btn">
+              <Play size={20} fill="white" />
+            </div>
+          </div>
+        </>
+      );
+    } else {
+      return <File size={32} color="var(--text-muted)" />;
+    }
+  };
 
   return (
     <div
@@ -154,27 +282,17 @@ const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onS
       draggable
       onDragStart={(e) => onDragStart(e, item)}
     >
-      <div className="file-checkbox">✓</div>
-      {isImage ? (
-        <img src={getMediaUrl(item.url)} alt={item.name} className="file-thumb" loading="lazy" />
-      ) : (
-        <div className="file-thumb-placeholder">
-          <Film size={32} />
-        </div>
-      )}
+      <div className="file-checkbox"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+
+      <div className="file-thumb-container">
+        {renderThumbnail()}
+      </div>
+
       <div className="file-info">
         <div className="file-name" title={item.name}>{item.name}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-          <div className="file-type-badge">{item.type}</div>
-          {isEmbedded && (
-            <button
-              className="btn btn-primary"
-              style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '4px' }}
-              onClick={(e) => { e.stopPropagation(); onAdd && onAdd(item); }}
-            >
-              Agregar
-            </button>
-          )}
+        <div className="file-type-badge">
+          {isVideo ? <Film size={12} /> : isImage ? <ImageIcon size={12} /> : <File size={12} />}
+          <span>{isVideo ? 'Video' : isImage ? 'Imagen' : 'Documento'}</span>
         </div>
       </div>
     </div>
@@ -197,27 +315,24 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   const [uploading, setUploading] = useState(false);
   const [contextMenu, setContextMenu] = useState(null); // { x, y, item? }
   const [modal, setModal] = useState(null); // { type: 'rename'|'createFolder'|'deleteConfirm', item?, value }
+  const [draggingOver, setDraggingOver] = useState(null);
 
   const clientId = customClientId || getClientId();
   const superAdmin = customClientId ? false : isSuperAdmin();
   const fileInputRef = useRef(null);
+  const draggedIdRef = useRef(null);
 
-  // Resuelve qué clientId está activo AHORA según la carpeta en la que navega el super_admin
+  // --- Mismos métodos de lógica (getEffectiveClientId, loadAll, handleSelect...) ---
+  // (Mantenemos toda tu lógica intacta para no romper nada de tu backend)
   const getEffectiveClientId = useCallback(() => {
-    if (clientId) return clientId; // Cliente propio (no super_admin) o customClientId
-    // Super_admin dentro de carpeta virtual de cliente: "client_3" o "client_vpss"
+    if (clientId) return clientId;
     if (typeof currentFolder === 'string' && currentFolder.startsWith('client_')) {
       const suffix = currentFolder.split('_').slice(1).join('_');
       const numericId = parseInt(suffix);
-      // Si el sufijo es un número válido, lo usamos directo
       if (!isNaN(numericId)) return numericId;
-      // Si es un slug (ej. "vpss"), buscamos en el array de clientes cargados
-      const match = clients.find(c =>
-        String(c.id) === suffix || c.slug === suffix || c.folder_name === suffix
-      );
+      const match = clients.find(c => String(c.id) === suffix || c.slug === suffix || c.folder_name === suffix);
       if (match) return match.id;
     }
-    // Super_admin dentro de una subcarpeta real → buscar a qué cliente pertenece
     if (currentFolder && typeof currentFolder === 'number') {
       const parentFolder = folders.find(f => f.id === currentFolder);
       if (parentFolder?.client_id) return parentFolder.client_id;
@@ -225,7 +340,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     return null;
   }, [clientId, currentFolder, folders, clients]);
 
-  // ---- LOAD ----
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -233,57 +347,57 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
         api.get(`/media/library${clientId && !superAdmin ? `?clientId=${clientId}` : ''}`),
         api.get(`/media/folders${clientId && !superAdmin ? `?clientId=${clientId}` : ''}`)
       ];
-      if (superAdmin) {
-        promises.push(api.get('/admin/clients'));
-      }
+      if (superAdmin) promises.push(api.get('/admin/clients'));
       const results = await Promise.all(promises);
       setAllMedia(results[0].data);
       setFolders(results[1].data);
-      if (superAdmin && results[2]) {
-        setClients(results[2].data);
-      }
+      if (superAdmin && results[2]) setClients(results[2].data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [clientId, superAdmin]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
-
-  // Close context menu on click outside
   useEffect(() => {
     const close = () => setContextMenu(null);
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, []);
 
+  // Notificar al padre (Modal) cuando cambia la selección si está embebido
+  useEffect(() => {
+    if (isEmbedded && onSelectMedia) {
+      // Si hay un seleccionado, mandamos ese objeto. Si no, mandamos null
+      if (selected.size === 1) {
+        const selectedId = Array.from(selected)[0];
+        const item = allMedia.find(m => m.id === selectedId);
+        onSelectMedia(item);
+      } else {
+        onSelectMedia(null);
+      }
+    }
+  }, [selected, isEmbedded, allMedia]); // Quitamos onSelectMedia del arreglo de dependencias si causa loops
+
+
   // ---- FILTERED MEDIA & FOLDERS ----
   let currentFolders = [];
   let visibleMedia = [];
 
   if (superAdmin && currentFolder === null) {
-    // Root level for super_admin -> Show clients as virtual folders
     currentFolders = clients.map(c => ({
-      id: `client_${c.id}`,
-      name: c.name,
-      parent_id: null,
-      isClientTopLevel: true,
-      actual_client_id: c.id
+      id: `client_${c.id}`, name: c.name, parent_id: null, isClientTopLevel: true, actual_client_id: c.id
     }));
-    visibleMedia = []; // No media directly at system root
+    visibleMedia = [];
   } else {
-    // Determine context based on if we are inside a client root or normal folder
     let clientFilter = null;
     let parentFolderId = currentFolder;
-
     if (superAdmin && typeof currentFolder === 'string' && currentFolder.startsWith('client_')) {
       clientFilter = parseInt(currentFolder.split('_')[1]);
       parentFolderId = null;
     }
-
     currentFolders = folders.filter(f => {
       if (clientFilter !== null) return f.parent_id === null && f.client_id === clientFilter;
       return f.parent_id === parentFolderId;
     });
-
     visibleMedia = allMedia.filter(m => {
       if (clientFilter !== null) return !m.folder_id && m.client_id === clientFilter;
       const inFolder = (parentFolderId === null ? (!m.folder_id && (!superAdmin || m.client_id === clientId)) : m.folder_id === parentFolderId);
@@ -292,7 +406,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     });
   }
 
-  // ---- SELECTION ----
+  // --- ACTIONS ---
   const handleSelect = (id, e) => {
     setSelected(prev => {
       const next = new Set(prev);
@@ -312,41 +426,26 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     });
   };
 
-  // ---- CLIPBOARD ----
-  const copySelected = () => {
-    const items = [...selected];
-    setClipboard({ items, action: 'copy' });
-  };
-  const cutSelected = () => {
-    const items = [...selected];
-    setClipboard({ items, action: 'cut' });
-  };
+  const copySelected = () => { setClipboard({ items: [...selected], action: 'copy' }); };
+  const cutSelected = () => { setClipboard({ items: [...selected], action: 'cut' }); };
   const paste = async () => {
     if (!clipboard.items.length) return;
     const effectiveClientId = getEffectiveClientId();
     for (const id of clipboard.items) {
-      if (clipboard.action === 'copy') {
-        await api.post('/media/copy', { mediaId: id, targetClientId: effectiveClientId });
-      } else {
-        await api.patch(`/media/${id}/move`, { folder_id: currentFolder });
-      }
+      if (clipboard.action === 'copy') await api.post('/media/copy', { mediaId: id, targetClientId: effectiveClientId });
+      else await api.patch(`/media/${id}/move`, { folder_id: currentFolder });
     }
     if (clipboard.action === 'cut') setClipboard({ items: [], action: null });
     setSelected(new Set());
     loadAll();
   };
-
-  // ---- DELETE ----
   const deleteSelected = async () => {
     if (!window.confirm(`¿Eliminar ${selected.size} archivo(s)?`)) return;
-    for (const id of selected) {
-      await api.delete(`/media/${id}`);
-    }
+    for (const id of selected) await api.delete(`/media/${id}`);
     setSelected(new Set());
     loadAll();
   };
 
-  // ---- UPLOAD ----
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -354,21 +453,17 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     const effectiveClientId = getEffectiveClientId();
     for (const file of files) {
       const fd = new FormData();
-      // APPEND FIELDS BEFORE FILE FOR MULTER
       if (effectiveClientId) fd.append('clientId', effectiveClientId);
       if (currentFolder && typeof currentFolder === 'number') fd.append('folderId', currentFolder);
       fd.append('file', file);
-
-      try {
-        await api.post('/media/upload', fd, { headers: { 'Content-Type': undefined } });
-      } catch (err) { console.error('Upload error:', err?.response?.data || err.message); }
+      try { await api.post('/media/upload', fd, { headers: { 'Content-Type': undefined } }); }
+      catch (err) { console.error('Upload error:', err?.response?.data || err.message); }
     }
     setUploading(false);
     loadAll();
     e.target.value = '';
   };
 
-  // ---- RENAME ----
   const doRename = async () => {
     if (!modal?.item || !modal.value?.trim()) return;
     await api.patch(`/media/${modal.item.id}/rename`, { name: modal.value.trim() });
@@ -376,50 +471,29 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     loadAll();
   };
 
-  // ---- CREATE FOLDER ----
   const doCreateFolder = async () => {
     if (!modal.value.trim()) return;
-
-    // Validation: cannot create a folder with the same name as a client
     if (superAdmin && clients.some(c => c.name.toLowerCase() === modal.value.trim().toLowerCase())) {
       alert("No se puede crear una carpeta con el mismo nombre que un cliente.");
       return;
     }
-
     let parentFolderId = currentFolder;
     let clientIdForFolder = clientId;
-
-    // Si somos super_admin y estamos creando en el root de un cliente virtual
     if (superAdmin) {
-      if (currentFolder === null) {
-        alert("No puedes crear carpetas aquí. Entra a un cliente primero.");
-        return;
-      }
+      if (currentFolder === null) { alert("No puedes crear carpetas aquí. Entra a un cliente primero."); return; }
       if (typeof currentFolder === 'string' && currentFolder.startsWith('client_')) {
-        parentFolderId = null;
-        clientIdForFolder = parseInt(currentFolder.split('_')[1]);
+        parentFolderId = null; clientIdForFolder = parseInt(currentFolder.split('_')[1]);
       } else {
-        // Find owner of current folder
         const parent = folders.find(f => f.id === currentFolder);
         if (parent) clientIdForFolder = parent.client_id;
       }
     }
-
     try {
-      await api.post('/media/folders', {
-        name: modal.value.trim(),
-        parent_id: parentFolderId,
-        client_id: clientIdForFolder
-      });
-      setModal(null);
-      loadAll();
-    } catch (e) {
-      console.error(e);
-      alert('Error al crear la carpeta');
-    }
+      await api.post('/media/folders', { name: modal.value.trim(), parent_id: parentFolderId, client_id: clientIdForFolder });
+      setModal(null); loadAll();
+    } catch (e) { alert('Error al crear la carpeta'); }
   };
 
-  // ---- DELETE FOLDER ----
   const doDeleteFolder = async (folderId) => {
     if (!window.confirm('¿Eliminar carpeta? Los archivos quedarán en la raíz.')) return;
     await api.delete(`/media/folders/${folderId}`);
@@ -427,13 +501,26 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     loadAll();
   };
 
-  // ---- NAVIGATE FOLDERS ----
   const navigateToFolder = (folder) => {
     setCurrentFolder(folder?.id || null);
-    setFolderPath(folder ? [...folderPath.filter(f => f.id !== folder.id), folder] : []);
+
+    // Si la carpeta existe, construir el breadcrumb hacia atrás
+    if (folder) {
+      const newPath = [];
+      let current = folder;
+      while (current) {
+        newPath.unshift(current); // Agregar al inicio
+        current = folders.find(f => f.id === current.parent_id);
+      }
+      setFolderPath(newPath);
+    } else {
+      setFolderPath([]);
+    }
+
     setSelected(new Set());
     setSearch('');
   };
+
   const navigateBack = () => {
     const path = folderPath.slice(0, -1);
     setFolderPath(path);
@@ -441,73 +528,59 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     setSelected(new Set());
   };
 
-  // ---- DRAG & DROP TO FOLDER ----
-  const [draggingOver, setDraggingOver] = useState(null);
-  const draggedIdRef = useRef(null); // Always reliable, avoids stale closure
-
+  // --- DRAG & DROP ---
   const handleDragStart = (e, item) => {
     e.dataTransfer.setData('mediaId', String(item.id));
     e.dataTransfer.effectAllowed = 'move';
     draggedIdRef.current = item.id;
-    // Also add to selection so multiple files can be moved
-    setSelected(prev => { const n = new Set(prev); n.add(item.id); return n; });
+    if (!selected.has(item.id)) {
+      setSelected(new Set([item.id])); // Seleccionar solo este si no estaba seleccionado
+    }
   };
 
-  const handleFolderDragOver = (e, folderId) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDraggingOver(folderId); };
+  const handleFolderDragOver = (e, folderId) => {
+    e.preventDefault();
+    if (folderId === null) {
+      setDraggingOver(null);
+    } else {
+      setDraggingOver(folderId);
+    }
+  };
 
   const handleFolderDrop = async (e, folderId) => {
     e.preventDefault();
     e.stopPropagation();
     setDraggingOver(null);
 
-    // PRIMARY: always use the reliably dragged item ref
     const primaryId = draggedIdRef.current || parseInt(e.dataTransfer.getData('mediaId'));
     draggedIdRef.current = null;
 
-    // Build a set of IDs to move: the dragged item + any already-selected items
-    const idsToMove = new Set();
+    const idsToMove = new Set(selected);
     if (primaryId) idsToMove.add(primaryId);
-    // Only include selected items if they are in the same view (avoid moving unrelated items)
-    selected.forEach(id => idsToMove.add(id));
 
     if (idsToMove.size === 0) return;
 
     try {
-      await Promise.all([...idsToMove].map(id =>
-        api.patch(`/media/${id}/move`, { folder_id: folderId })
-      ));
-    } catch (err) {
-      console.error('Error moviendo archivos:', err);
-    }
+      await Promise.all([...idsToMove].map(id => api.patch(`/media/${id}/move`, { folder_id: folderId })));
+    } catch (err) { console.error('Error moviendo archivos:', err); }
     setSelected(new Set());
     loadAll();
   };
 
-  // ---- CONTEXT MENU ----
   const openContextMenu = (e, item) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, item });
-    if (!selected.has(item.id)) {
-      setSelected(new Set([item.id]));
-    }
+    if (!selected.has(item.id)) setSelected(new Set([item.id]));
   };
 
-  // ---- BREADCRUMB ----
+  // --- RENDER HELPERS ---
   const Breadcrumb = () => (
     <div className="breadcrumb">
       <Home size={14} style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => { setCurrentFolder(null); setFolderPath([]); setSearch(''); }} />
       {folderPath.map(p => (
         <React.Fragment key={p.id}>
           <ChevronRight size={14} />
-          <div
-            className={`breadcrumb-item ${p.id === currentFolder ? 'current' : ''}`}
-            onClick={() => {
-              const idx = folderPath.findIndex(x => x.id === p.id);
-              setFolderPath(folderPath.slice(0, idx + 1));
-              setCurrentFolder(p.id);
-            }}
-          >
+          <div className={`breadcrumb-item ${p.id === currentFolder ? 'current' : ''}`} onClick={() => navigateToFolder(p)}>
             {p.name}
           </div>
         </React.Fragment>
@@ -516,67 +589,76 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   );
 
   const selectedItems = [...selected].map(id => allMedia.find(m => m.id === id)).filter(Boolean);
-  const topFolders = folders.filter(f => !f.parent_id);
   const isEmpty = currentFolders.length === 0 && visibleMedia.length === 0;
-
-  // Solo mostrar el árbol de carpetas izquierdo si no estamos en el root del superAdmin
-  // (ya que mezclaría clientes con carpetas en el sidebar izquierdo de forma confusa)
   const isSuperAdminRoot = superAdmin && currentFolder === null;
+
+  // Filtrar carpetas raíz para el árbol
+  const rootFolders = useMemo(() => {
+    if (isSuperAdminRoot) return []; // No mostrar árbol si estamos en el root de admin
+
+    let activeClient = null;
+    if (superAdmin) {
+      activeClient = typeof currentFolder === 'string' ? parseInt(currentFolder.split('_')[1]) : (folders.find(x => x.id === currentFolder)?.client_id);
+    }
+
+    return folders.filter(f => !f.parent_id && (superAdmin ? f.client_id === activeClient : true));
+  }, [folders, superAdmin, currentFolder, isSuperAdminRoot]);
+
 
   const content = (
     <>
-      <div className="explorer-root" style={isEmbedded ? { height: '70vh', border: 'none', borderRadius: '0' } : {}}>
-        {/* ===== PANEL IZQUIERDO (Árbol de carpetas) ===== */}
-        <div className="sidebar-panel">
-          <div className="sidebar-header">
-            <div className="sidebar-title">Carpetas</div>
-          </div>
-          <div className="sidebar-folders">
-            {/* Raíz */}
-            <div
-              className={`folder-item ${currentFolder === null ? 'active' : ''}`}
-              onClick={() => { setCurrentFolder(null); setFolderPath([]); setSearch(''); }}
-              onDragOver={e => handleFolderDragOver(e, null)}
-              onDrop={e => handleFolderDrop(e, null)}
-            >
-              {currentFolder === null ? <FolderOpen size={16} /> : <Folder size={16} />}
-              Inicio
+      <div className="explorer-root" style={isEmbedded ? { height: '100%', border: 'none', borderRadius: '0' } : {}}>
+        {/* ===== PANEL IZQUIERDO (Árbol Recursivo) ===== */}
+        {!isSuperAdminRoot && (
+          <div className="sidebar-panel">
+            <div className="sidebar-header">
+              <div className="sidebar-title">Carpetas</div>
             </div>
+            <div className="sidebar-folders">
 
-            {/* Carpetas del cliente */}
-            {!isSuperAdminRoot && folders.filter(f => {
-              if (superAdmin) {
-                const activeClient = typeof currentFolder === 'string' ? parseInt(currentFolder.split('_')[1]) : (folders.find(x => x.id === currentFolder)?.client_id);
-                return f.client_id === activeClient;
-              }
-              return !f.parent_id;
-            }).map(folder => (
+              {/* Inicio (Root) */}
               <div
-                key={folder.id}
-                className={`folder-item ${currentFolder === folder.id ? 'active' : ''} ${draggingOver === folder.id ? 'drag-over' : ''}`}
-                onClick={() => navigateToFolder(folder)}
-                onDragOver={e => handleFolderDragOver(e, folder.id)}
-                onDragLeave={() => setDraggingOver(null)}
-                onDrop={e => handleFolderDrop(e, folder.id)}
+                className={`folder-tree-item ${currentFolder === null ? 'active' : ''}`}
+                style={{ paddingLeft: '8px' }}
+                onClick={() => { setCurrentFolder(null); setFolderPath([]); setSearch(''); }}
+                onDragOver={e => handleFolderDragOver(e, null)}
+                onDrop={e => handleFolderDrop(e, null)}
               >
-                {currentFolder === folder.id ? <FolderOpen size={16} /> : <Folder size={16} />}
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
-                <button className="folder-delete-btn" onClick={e => { e.stopPropagation(); doDeleteFolder(folder.id); }} title="Eliminar carpeta">
-                  <X size={12} />
-                </button>
+                <div className="folder-tree-icon-wrapper"></div>
+                {currentFolder === null ? <FolderOpen size={16} style={{ marginRight: '8px', color: 'var(--accent)' }} /> : <Folder size={16} style={{ marginRight: '8px' }} />}
+                <span>Inicio</span>
               </div>
-            ))}
 
-            {/* Botón Nueva Carpeta */}
-            <div
-              className="folder-item"
-              style={{ color: 'var(--text-muted)', marginTop: '8px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}
-              onClick={() => setModal({ type: 'createFolder', value: '' })}
-            >
-              <FolderPlus size={16} /> Nueva carpeta
+              <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }}></div>
+
+              {/* Árbol de Carpetas */}
+              {rootFolders.map(folder => (
+                <TreeNode
+                  key={folder.id}
+                  folder={folder}
+                  allFolders={folders}
+                  currentFolder={currentFolder}
+                  onNavigate={navigateToFolder}
+                  onDrop={handleFolderDrop}
+                  onDragOver={handleFolderDragOver}
+                  draggingOver={draggingOver}
+                  onDelete={doDeleteFolder}
+                  depth={0}
+                />
+              ))}
+
+              {/* Botón Nueva Carpeta en el Sidebar */}
+              <div style={{ height: '1px', background: 'var(--border)', margin: '12px 0 8px 0' }}></div>
+              <div
+                className="folder-tree-item"
+                style={{ color: 'var(--text-muted)', paddingLeft: '8px' }}
+                onClick={() => setModal({ type: 'createFolder', value: '' })}
+              >
+                <FolderPlus size={16} style={{ marginRight: '8px' }} /> <span style={{ fontWeight: 500 }}>Nueva carpeta</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ===== PANEL DERECHO (Archivos) ===== */}
         <div className="main-panel">
@@ -590,12 +672,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
 
             <div className="search-box">
               <Search size={14} color="var(--text-muted)" />
-              <input
-                type="text"
-                placeholder="Buscar archivos..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+              <input type="text" placeholder="Buscar archivos..." value={search} onChange={e => setSearch(e.target.value)} />
               {search && <X size={14} style={{ cursor: 'pointer' }} onClick={() => setSearch('')} />}
             </div>
 
@@ -619,13 +696,12 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
             </button>
           </div>
 
-          {/* Breadcrumb */}
           <Breadcrumb />
 
           {/* Selection bar */}
           {selected.size > 0 && (
             <div className="selection-bar">
-              <span>{selected.size} seleccionado(s)</span>
+              <span style={{ fontWeight: 500 }}>{selected.size} elemento(s) seleccionado(s)</span>
               <div className="selection-bar-actions">
                 <button className="btn btn-secondary" onClick={copySelected}><Copy size={14} /> Copiar</button>
                 <button className="btn btn-secondary" onClick={cutSelected}><Scissors size={14} /> Cortar</button>
@@ -634,7 +710,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
                     <Pencil size={14} /> Renombrar
                   </button>
                 )}
-                <button className="btn btn-secondary" style={{ color: 'var(--danger)' }} onClick={deleteSelected}><Trash2 size={14} /> Eliminar</button>
+                <button className="btn btn-secondary" style={{ color: 'var(--danger)', borderColor: '#fca5a5' }} onClick={deleteSelected}><Trash2 size={14} /> Eliminar</button>
                 <button className="btn btn-icon" onClick={() => setSelected(new Set())}><X size={14} /></button>
               </div>
             </div>
@@ -647,14 +723,15 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
             ) : isEmpty && !search ? (
               <label className="upload-zone">
                 <Upload size={36} style={{ marginBottom: '12px', opacity: 0.4 }} />
-                <div className="upload-zone-sub">o haz clic para seleccionar</div>
+                <div className="upload-zone-title">Arrastra tus archivos aquí</div>
+                <div className="upload-zone-sub">o haz clic para seleccionar (imágenes y videos)</div>
                 <input type="file" multiple hidden onChange={handleUpload} accept="image/*,video/*" />
               </label>
             ) : search && visibleMedia.length === 0 && currentFolders.length === 0 ? (
               <div className="empty-state"><Search size={48} /><span>Sin resultados para "{search}"</span></div>
             ) : (
               <div className="files-grid">
-                {/* CARPETAS PRIMERO */}
+                {/* CARPETAS (Vista Principal) */}
                 {currentFolders.map(folder => (
                   <div
                     key={`folder-${folder.id}`}
@@ -666,11 +743,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
                   >
                     <Folder size={20} color="#3b82f6" style={{ flexShrink: 0 }} />
                     <span className="folder-card-name">{folder.name}</span>
-                    <button
-                      className="folder-card-del"
-                      onClick={(e) => { e.stopPropagation(); doDeleteFolder(folder.id); }}
-                      title="Eliminar carpeta"
-                    >
+                    <button className="folder-card-del" onClick={(e) => { e.stopPropagation(); doDeleteFolder(folder.id); }} title="Eliminar carpeta">
                       <X size={13} />
                     </button>
                   </div>
@@ -698,35 +771,17 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
       </div>
 
       {/* ===== CONTEXT MENU ===== */}
-      {
-        contextMenu && (
-          <div
-            className="context-menu"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="context-item" onClick={() => { copySelected(); setContextMenu(null); }}>
-              <Copy size={14} /> Copiar
-            </div>
-            <div className="context-item" onClick={() => { cutSelected(); setContextMenu(null); }}>
-              <Scissors size={14} /> Cortar
-            </div>
-            {clipboard.items.length > 0 && (
-              <div className="context-item" onClick={() => { paste(); setContextMenu(null); }}>
-                <Clipboard size={14} /> Pegar
-              </div>
-            )}
-            <div className="context-divider" />
-            <div className="context-item" onClick={() => { setModal({ type: 'rename', item: contextMenu.item, value: contextMenu.item.name }); setContextMenu(null); }}>
-              <Pencil size={14} /> Renombrar
-            </div>
-            <div className="context-divider" />
-            <div className="context-item danger" onClick={() => { deleteSelected(); setContextMenu(null); }}>
-              <Trash2 size={14} /> Eliminar
-            </div>
-          </div>
-        )
-      }
+      {contextMenu && (
+        <div className="context-menu" style={{ top: contextMenu.y, left: contextMenu.x }} onClick={e => e.stopPropagation()}>
+          <div className="context-item" onClick={() => { copySelected(); setContextMenu(null); }}><Copy size={14} /> Copiar</div>
+          <div className="context-item" onClick={() => { cutSelected(); setContextMenu(null); }}><Scissors size={14} /> Cortar</div>
+          {clipboard.items.length > 0 && <div className="context-item" onClick={() => { paste(); setContextMenu(null); }}><Clipboard size={14} /> Pegar</div>}
+          <div className="context-divider" />
+          <div className="context-item" onClick={() => { setModal({ type: 'rename', item: contextMenu.item, value: contextMenu.item.name }); setContextMenu(null); }}><Pencil size={14} /> Renombrar</div>
+          <div className="context-divider" />
+          <div className="context-item danger" onClick={() => { deleteSelected(); setContextMenu(null); }}><Trash2 size={14} /> Eliminar</div>
+        </div>
+      )}
 
       {/* ===== MODALS ===== */}
       {modal && (
@@ -735,13 +790,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
             {modal.type === 'rename' && (
               <>
                 <div className="modal-title">Renombrar archivo</div>
-                <input
-                  autoFocus
-                  className="modal-input"
-                  value={modal.value}
-                  onChange={e => setModal({ ...modal, value: e.target.value })}
-                  onKeyDown={e => { if (e.key === 'Enter') doRename(); if (e.key === 'Escape') setModal(null); }}
-                />
+                <input autoFocus className="modal-input" value={modal.value} onChange={e => setModal({ ...modal, value: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') doRename(); if (e.key === 'Escape') setModal(null); }} />
                 <div className="modal-actions">
                   <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
                   <button className="btn btn-primary" onClick={doRename}>Guardar</button>
@@ -751,14 +800,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
             {modal.type === 'createFolder' && (
               <>
                 <div className="modal-title">Nueva carpeta</div>
-                <input
-                  autoFocus
-                  className="modal-input"
-                  placeholder="Nombre de la carpeta"
-                  value={modal.value}
-                  onChange={e => setModal({ ...modal, value: e.target.value })}
-                  onKeyDown={e => { if (e.key === 'Enter') doCreateFolder(); if (e.key === 'Escape') setModal(null); }}
-                />
+                <input autoFocus className="modal-input" placeholder="Nombre de la carpeta" value={modal.value} onChange={e => setModal({ ...modal, value: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') doCreateFolder(); if (e.key === 'Escape') setModal(null); }} />
                 <div className="modal-actions">
                   <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
                   <button className="btn btn-primary" onClick={doCreateFolder}>Crear</button>
@@ -773,7 +815,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
 
   if (isEmbedded) {
     return (
-      <div className="media-manager-embedded">
+      <div className="media-manager-embedded" style={{ height: '100%' }}>
         <style>{STYLES}</style>
         {content}
       </div>
