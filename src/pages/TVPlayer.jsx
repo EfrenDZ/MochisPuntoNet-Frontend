@@ -309,11 +309,11 @@ export default function TVPlayer() {
     };
 
     // --- RENDERIZADO ---
-    const renderMedia = (item, animationClass = '') => {
+    // Añadimos 'layerType' para diferenciar la capa vieja de la nueva
+    const renderMedia = (item, layerType, animationClass = '') => {
         if (!item) return null;
 
         const isFadingOut = animationClass.includes('fadeOut');
-        // ✨ NUEVO: Detectamos si es el único elemento en la lista
         const isSingleItem = activePlaylist.length === 1;
 
         const content = item.type === 'video' ? (
@@ -322,9 +322,8 @@ export default function TVPlayer() {
                 autoPlay
                 muted={true}
                 playsInline
-                // ✨ NUEVO: Loop nativo si es 1 solo elemento
                 loop={isSingleItem}
-                // ✨ NUEVO: Solo lanza onEnded si NO es un fadeOut y NO es un elemento único
+                // Evitamos que el video salte si se está yendo o si es el único
                 onEnded={(!isFadingOut && !isSingleItem) ? nextItem : undefined}
                 style={styles.mediaFull}
             />
@@ -333,7 +332,8 @@ export default function TVPlayer() {
         );
 
         return (
-            <div key={`${item.item_id}-${animationClass}`} style={{ ...styles.layer, animation: animationClass }}>
+            // IMPORTANTE: El key ya no depende de la animación
+            <div key={`${layerType}-${item.item_id}`} style={{ ...styles.layer, animation: animationClass }}>
                 {content}
             </div>
         );
@@ -382,36 +382,51 @@ export default function TVPlayer() {
 
         return (
             <div style={playerStyle}>
-                {/* VIDEO HACK ANTISUSPENSIÓN */}
+                {/* VIDEO HACK ANTISUSPENSIÓN MEJORADO */}
                 <video
                     src={NO_SLEEP_VIDEO_BASE64}
-                    autoPlay loop muted playsInline
-                    style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0.01, pointerEvents: 'none', zIndex: 0 }}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    style={{
+                        position: 'absolute',
+                        width: '10px',    // Más grande que 1x1 para que la TV no lo descarte
+                        height: '10px',
+                        opacity: 0.1,     // Suficiente para que el motor gráfico lo procese
+                        pointerEvents: 'none',
+                        zIndex: -1,       // Lo escondemos DETRÁS de tu contenido real
+                        bottom: 0,
+                        right: 0
+                    }}
                 />
 
-                {renderMedia(activePlaylist[currentIndex], isTransitioning ? 'fadeIn 1s forwards' : '')}
+                {/* 1. CAPA INFERIOR: El elemento que se va. 
+                    No le ponemos fadeOut, se queda sólido mientras el otro lo tapa */}
+                {isTransitioning && previousIndex !== null &&
+                    renderMedia(activePlaylist[previousIndex], 'prev', '')}
 
-                {/* Solo renderizamos el anterior si estamos transicionando, para ahorrar memoria en TV */}
-                {isTransitioning && previousIndex !== null && renderMedia(activePlaylist[previousIndex], 'fadeOut 1s forwards')}
+                {/* 2. CAPA SUPERIOR: El elemento nuevo. 
+                    Hace fadeIn por encima del anterior */}
+                {renderMedia(activePlaylist[currentIndex], 'curr', isTransitioning ? 'fadeIn 1s forwards' : '')}
 
-                <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }`}</style>
+                <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
             </div>
         );
+
+        return null;
     }
 
-    return null;
-}
-
-const styles = {
-    startOverlay: { position: 'fixed', inset: 0, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 9999 },
-    startBox: { textAlign: 'center', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' },
-    containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
-    codeBox: { background: 'rgba(255,255,255,0.05)', padding: '40px 60px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '90%', wordBreak: 'break-all' },
-    bigCode: { fontSize: 'clamp(40px, 8vw, 70px)', margin: '15px 0', letterSpacing: '4px', fontWeight: '800', color: '#3b82f6', wordWrap: 'break-word' },
-    containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap: '20px' },
-    btnRetry: { background: 'white', color: '#ef4444', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
-    containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' },
-    playerContainer: { position: 'fixed', top: '50%', left: '50%', width: '100vw', height: '100vh', backgroundColor: 'black', overflow: 'hidden', transform: 'translate(-50%, -50%)' },
-    layer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-    mediaFull: { width: '100%', height: '100%', objectFit: 'cover' },
-};
+    const styles = {
+        startOverlay: { position: 'fixed', inset: 0, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 9999 },
+        startBox: { textAlign: 'center', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' },
+        containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
+        codeBox: { background: 'rgba(255,255,255,0.05)', padding: '40px 60px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '90%', wordBreak: 'break-all' },
+        bigCode: { fontSize: 'clamp(40px, 8vw, 70px)', margin: '15px 0', letterSpacing: '4px', fontWeight: '800', color: '#3b82f6', wordWrap: 'break-word' },
+        containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap: '20px' },
+        btnRetry: { background: 'white', color: '#ef4444', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+        containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' },
+        playerContainer: { position: 'fixed', top: '50%', left: '50%', width: '100vw', height: '100vh', backgroundColor: 'black', overflow: 'hidden', transform: 'translate(-50%, -50%)' },
+        layer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        mediaFull: { width: '100%', height: '100%', objectFit: 'cover' },
+    };
