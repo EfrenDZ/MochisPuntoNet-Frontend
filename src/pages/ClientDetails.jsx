@@ -214,7 +214,8 @@ const SortablePlaylistItem = memo(({ item, onRemove, onUpdateDuration, index }) 
             <div className="row-info">
                 <span className="row-title-text">
                     {isVideo ? <Film size={14} className="text-blue-500" /> : <ImageIcon size={14} className="text-green-500" />}
-                    {isVideo ? 'Video Clip' : 'Imagen'}
+                    {/* 👇 Aquí mostramos el nombre del archivo, con un respaldo por si acaso */}
+                    {item.name || item.media_name || (isVideo ? 'Video Clip' : 'Imagen')}
                 </span>
                 <span className="row-index-text">Posición #{index + 1}</span>
             </div>
@@ -497,7 +498,8 @@ export default function ClientDetails() {
             media_id: fullMedia.id,
             url: fullMedia.url,
             type: fullMedia.type,
-            custom_duration: fullMedia.type === 'video' ? 0 : 10, // 0 si es video
+            name: fullMedia.name, // <--- ✨ ESTA LÍNEA ES LA CLAVE
+            custom_duration: fullMedia.type === 'video' ? 0 : 10,
             display_order: playlist.length
         };
         setPlaylist(prev => [...prev, newItem]);
