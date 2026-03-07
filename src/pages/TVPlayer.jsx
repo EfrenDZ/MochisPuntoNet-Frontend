@@ -122,6 +122,10 @@ export default function TVPlayer() {
     useEffect(() => {
         if (status !== 'playing' || activePlaylist.length === 0) return;
 
+        if (activePlaylist.length === 1) {
+            return; // Se queda estático. Si es video, el atributo 'loop' lo repetirá limpiamente.
+        }
+
         const item = activePlaylist[currentIndex];
         if (!item) return;
 
@@ -308,15 +312,20 @@ export default function TVPlayer() {
     const renderMedia = (item, animationClass = '') => {
         if (!item) return null;
 
-        // Optimización: Si es una transición de salida (fadeOut), 
-        // y el item es video, lo silenciamos para evitar conflictos de audio
         const isFadingOut = animationClass.includes('fadeOut');
+        // ✨ NUEVO: Detectamos si es el único elemento en la lista
+        const isSingleItem = activePlaylist.length === 1;
 
         const content = item.type === 'video' ? (
             <video
-                src={item.url} autoPlay muted={true} playsInline
-                // Importante: Solo el video activo (no el que se va) puede disparar nextItem
-                onEnded={!isFadingOut ? nextItem : undefined}
+                src={item.url}
+                autoPlay
+                muted={true}
+                playsInline
+                // ✨ NUEVO: Loop nativo si es 1 solo elemento
+                loop={isSingleItem}
+                // ✨ NUEVO: Solo lanza onEnded si NO es un fadeOut y NO es un elemento único
+                onEnded={(!isFadingOut && !isSingleItem) ? nextItem : undefined}
                 style={styles.mediaFull}
             />
         ) : (
