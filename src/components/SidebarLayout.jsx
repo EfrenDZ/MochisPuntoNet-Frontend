@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, LogOut, Menu, X, Briefcase, Monitor, Image
 } from 'lucide-react';
-
+import { getMediaUrl } from '../utils/getMediaUrl';
 import logoMochis from '../assets/mochis_punto_net_logo.png';
 
 // ==========================================
@@ -176,7 +176,7 @@ export default function MainLayout({ children }) {
   const userData = JSON.parse(localStorage.getItem('user') || '{}');
   const userConfig = userData.clientConfig || {};
   const primaryColor = userConfig.primary_color || '#3b82f6';
-  const logo = userConfig.logo_url || logoMochis;
+  const logo = userConfig.logo_url ? getMediaUrl(userConfig.logo_url) : logoMochis;
   const user = userData;
   const clientSlug = localStorage.getItem('clientSlug');
   const basePath = (user?.role === 'super_admin' || user?.role === 'super_agent') ? '' : `/${clientSlug}`;

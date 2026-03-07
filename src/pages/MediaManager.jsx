@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import SidebarLayout from '../components/SidebarLayout';
 import api from '../config/api';
+import { getMediaUrl } from '../utils/getMediaUrl';
 import {
   Folder, FolderOpen, File, Image, Film, Upload, Search, Plus,
   Trash2, Copy, Scissors, Clipboard, Pencil, X, ChevronRight,
@@ -155,7 +156,7 @@ const FileCard = React.memo(({ item, selected, inClipboard, clipboardAction, onS
     >
       <div className="file-checkbox">✓</div>
       {isImage ? (
-        <img src={item.url} alt={item.name} className="file-thumb" loading="lazy" />
+        <img src={getMediaUrl(item.url)} alt={item.name} className="file-thumb" loading="lazy" />
       ) : (
         <div className="file-thumb-placeholder">
           <Film size={32} />
@@ -200,6 +201,29 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   const clientId = customClientId || getClientId();
   const superAdmin = customClientId ? false : isSuperAdmin();
   const fileInputRef = useRef(null);
+
+  // Resuelve qué clientId está activo AHORA según la carpeta en la que navega el super_admin
+  const getEffectiveClientId = useCallback(() => {
+    if (clientId) return clientId; // Cliente propio (no super_admin) o customClientId
+    // Super_admin dentro de carpeta virtual de cliente: "client_3" o "client_vpss"
+    if (typeof currentFolder === 'string' && currentFolder.startsWith('client_')) {
+      const suffix = currentFolder.split('_').slice(1).join('_');
+      const numericId = parseInt(suffix);
+      // Si el sufijo es un número válido, lo usamos directo
+      if (!isNaN(numericId)) return numericId;
+      // Si es un slug (ej. "vpss"), buscamos en el array de clientes cargados
+      const match = clients.find(c =>
+        String(c.id) === suffix || c.slug === suffix || c.folder_name === suffix
+      );
+      if (match) return match.id;
+    }
+    // Super_admin dentro de una subcarpeta real → buscar a qué cliente pertenece
+    if (currentFolder && typeof currentFolder === 'number') {
+      const parentFolder = folders.find(f => f.id === currentFolder);
+      if (parentFolder?.client_id) return parentFolder.client_id;
+    }
+    return null;
+  }, [clientId, currentFolder, folders, clients]);
 
   // ---- LOAD ----
   const loadAll = useCallback(async () => {
@@ -299,9 +323,10 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   };
   const paste = async () => {
     if (!clipboard.items.length) return;
+    const effectiveClientId = getEffectiveClientId();
     for (const id of clipboard.items) {
       if (clipboard.action === 'copy') {
-        await api.post('/media/copy', { mediaId: id, targetClientId: clientId || 1 });
+        await api.post('/media/copy', { mediaId: id, targetClientId: effectiveClientId });
       } else {
         await api.patch(`/media/${id}/move`, { folder_id: currentFolder });
       }
@@ -326,11 +351,12 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
     const files = Array.from(e.target.files);
     if (!files.length) return;
     setUploading(true);
+    const effectiveClientId = getEffectiveClientId();
     for (const file of files) {
       const fd = new FormData();
       // APPEND FIELDS BEFORE FILE FOR MULTER
-      if (clientId) fd.append('clientId', clientId);
-      if (currentFolder) fd.append('folderId', currentFolder);
+      if (effectiveClientId) fd.append('clientId', effectiveClientId);
+      if (currentFolder && typeof currentFolder === 'number') fd.append('folderId', currentFolder);
       fd.append('file', file);
 
       try {

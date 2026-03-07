@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useParams } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import api from '../config/api';
+import { getMediaUrl } from '../utils/getMediaUrl';
 // IMPORTAMOS EL NUEVO COMPONENTE
 import MediaLibraryModal from '../components/MediaLibraryModal';
 
@@ -207,7 +208,7 @@ const SortablePlaylistItem = memo(({ item, onRemove, onUpdateDuration, index }) 
                     <Film size={20} color="white" />
                 </div>
             ) : (
-                <img src={item.url} alt="media" className="row-img" />
+                <img src={getMediaUrl(item.url)} alt="media" className="row-img" />
             )}
 
             <div className="row-info">
@@ -265,7 +266,7 @@ const ScreenItem = memo(({ id, screen, onClick, isEditMode, onEditScreen, onDele
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="screen-item-wrapper">
             <div onClick={(e) => { if (isEditMode) return; onClick(); }} className={`screen-card ${screen.orientation === 'vertical' ? 'vertical' : ''} ${isGrouped ? 'grouped' : ''} ${isEditMode ? 'edit-mode' : ''}`}>
                 {isGrouped && <div className="grouped-tag"><LinkIcon size={10} /> {groupName || 'Grupo'}</div>}
-                {hasImage ? (<img src={screen.thumbnails[0]} alt="thumbnail" className="screen-img-content" />) : (<div className="screen-placeholder-content">{screen.orientation === 'horizontal' ? <Tv size={48} strokeWidth={1.5} /> : <Smartphone size={32} strokeWidth={1.5} />}<span className="no-signal-text">SIN SEÑAL</span></div>)}
+                {hasImage ? (<img src={getMediaUrl(screen.thumbnails[0])} alt="thumbnail" className="screen-img-content" />) : (<div className="screen-placeholder-content">{screen.orientation === 'horizontal' ? <Tv size={48} strokeWidth={1.5} /> : <Smartphone size={32} strokeWidth={1.5} />}<span className="no-signal-text">SIN SEÑAL</span></div>)}
                 <div className={`status-dot ${screen.status === 'online' ? 'online' : 'offline'}`}></div>
                 {isEditMode && (<><div className="drag-handle"><Layers size={14} /></div><div className="edit-actions"><button onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEditScreen(screen) }} className="btn-mini edit"><Edit2 size={12} /></button><button onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDeleteScreen(screen.id) }} className="btn-mini delete"><Trash2 size={12} /></button></div></>)}
             </div>
@@ -686,8 +687,8 @@ export default function ClientDetails() {
                                         <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.5)', borderRadius: '4px', padding: '4px', zIndex: 10 }}><Maximize2 size={16} color="white" /></div>
                                         {playlist.length > 0 ? (
                                             getActivePreviewContent()?.type === 'video' ?
-                                                <video src={getActivePreviewContent().url} autoPlay muted loop className={`preview-content ${selectedEntity.data.orientation === 'vertical' ? 'contain' : ''}`} /> :
-                                                <img src={getActivePreviewContent()?.url} className="preview-content" alt="" />
+                                                <video src={getMediaUrl(getActivePreviewContent().url)} autoPlay muted loop className={`preview-content ${selectedEntity.data.orientation === 'vertical' ? 'contain' : ''}`} /> :
+                                                <img src={getMediaUrl(getActivePreviewContent()?.url)} className="preview-content" alt="" />
                                         ) : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3, color: 'white' }}><Play size={40} /></div>}
                                     </div>
                                 </div>
@@ -741,7 +742,7 @@ export default function ClientDetails() {
                                 {/* VISTA RÁPIDA DE BIBLIOTECA */}
                                 <div className="library-quick-view">
                                     <div className="library-header"><div className="library-title"><ImageIcon size={16} color="#64748b" /><span>Biblioteca Reciente</span><span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'normal' }}>({availableMedia.length})</span></div><div style={{ display: 'flex', gap: '10px' }}><label className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', height: 'auto' }}><Plus size={14} /> Subir<input type="file" hidden onChange={handleFileUploadQuick} /></label><button onClick={() => setIsLibraryOpen(true)} className="btn-view-all"><Grid size={14} /> Ver todo</button></div></div>
-                                    <div className="quick-scroll-track">{availableMedia.slice(0, 5).map(m => (<div key={m.id} className="media-card" style={{ minWidth: '120px', height: '100%' }} onClick={() => handleAddToPlaylistLocal(m.id)}><div className="media-card-thumb"><span className="media-type-badge">{m.type === 'video' ? 'VIDEO' : 'IMG'}</span>{m.type === 'video' ? <div className="video-overlay"><Play size={24} color="white" fill="white" /></div> : <img src={m.url} alt="media" />}<div className="btn-add-overlay"><Plus size={18} /></div></div><div className="media-card-footer">{m.name}</div></div>))}<div onClick={() => setIsLibraryOpen(true)} style={{ minWidth: '100px', borderRadius: '10px', border: '2px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', cursor: 'pointer', gap: '5px', fontSize: '12px', fontWeight: '600' }}><Grid size={20} />Ver todo</div></div>
+                                    <div className="quick-scroll-track">{availableMedia.slice(0, 5).map(m => (<div key={m.id} className="media-card" style={{ minWidth: '120px', height: '100%' }} onClick={() => handleAddToPlaylistLocal(m.id)}><div className="media-card-thumb"><span className="media-type-badge">{m.type === 'video' ? 'VIDEO' : 'IMG'}</span>{m.type === 'video' ? <div className="video-overlay"><Play size={24} color="white" fill="white" /></div> : <img src={getMediaUrl(m.url)} alt="media" />}<div className="btn-add-overlay"><Plus size={18} /></div></div><div className="media-card-footer">{m.name}</div></div>))}<div onClick={() => setIsLibraryOpen(true)} style={{ minWidth: '100px', borderRadius: '10px', border: '2px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', cursor: 'pointer', gap: '5px', fontSize: '12px', fontWeight: '600' }}><Grid size={20} />Ver todo</div></div>
                                 </div>
                             </div>
                         </div>
@@ -749,12 +750,12 @@ export default function ClientDetails() {
                 </div>
             )}
 
-            {fullScreenPreview && <div className="preview-backdrop" onClick={() => setFullScreenPreview(false)}><div className={`tv-frame ${selectedEntity.data.orientation === 'vertical' ? 'vertical' : 'horizontal'}`} onClick={e => e.stopPropagation()}><button className="btn-close-preview" onClick={() => setFullScreenPreview(false)}><ArrowLeft size={18} /> Salir</button>{getActivePreviewContent() ? (getActivePreviewContent().type === 'video' ? <video src={getActivePreviewContent().url} autoPlay muted loop controls style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <img src={getActivePreviewContent().url} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />) : (<div style={{ color: 'white' }}>Sin contenido</div>)}</div></div>}
+            {fullScreenPreview && <div className="preview-backdrop" onClick={() => setFullScreenPreview(false)}><div className={`tv-frame ${selectedEntity.data.orientation === 'vertical' ? 'vertical' : 'horizontal'}`} onClick={e => e.stopPropagation()}><button className="btn-close-preview" onClick={() => setFullScreenPreview(false)}><ArrowLeft size={18} /> Salir</button>{getActivePreviewContent() ? (getActivePreviewContent().type === 'video' ? <video src={getMediaUrl(getActivePreviewContent().url)} autoPlay muted loop controls style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <img src={getMediaUrl(getActivePreviewContent().url)} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />) : (<div style={{ color: 'white' }}>Sin contenido</div>)}</div></div>}
 
             <MediaLibraryModal
                 isOpen={isLibraryOpen}
                 onClose={() => setIsLibraryOpen(false)}
-                clientId={id}
+                clientId={client?.id}
                 clientName={client?.name}
                 onSelect={handleAddToPlaylistLocal}
                 showToast={showToast}

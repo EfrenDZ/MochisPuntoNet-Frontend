@@ -11,6 +11,14 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // Las imágenes subidas se sirven en /api/uploads/... via el backend
+      '/uploads': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => `/api${path}`,
+      },
     }
   }
 })
+

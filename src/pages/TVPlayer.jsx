@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../config/api';
+import { getMediaUrl } from '../utils/getMediaUrl';
 import { WifiOff, CloudOff, Loader, Maximize, Lock } from 'lucide-react';
 
 // --- HACK: VIDEO INVISIBLE ---
@@ -196,7 +197,8 @@ export default function TVPlayer() {
 
     const processPlaylist = async (rawItems) => {
         return Promise.all(rawItems.map(async (item) => {
-            const localUrl = await cacheMedia(item.url);
+            const resolvedUrl = getMediaUrl(item.url);
+            const localUrl = await cacheMedia(resolvedUrl);
             return { ...item, original_url: item.url, url: localUrl };
         }));
     };
