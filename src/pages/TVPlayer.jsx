@@ -371,6 +371,7 @@ export default function TVPlayer() {
     if (status === 'empty') return <div style={styles.containerBlack}><CloudOff size={60} color="#64748b" /><h2>Sin Contenido</h2></div>;
 
     // VISTA PLAYING
+    // VISTA PLAYING
     if (status === 'playing') {
         const isFlipped = rotation === 90 || rotation === 270;
         const playerStyle = {
@@ -391,42 +392,40 @@ export default function TVPlayer() {
                     playsInline
                     style={{
                         position: 'absolute',
-                        width: '10px',    // Más grande que 1x1 para que la TV no lo descarte
+                        width: '10px',
                         height: '10px',
-                        opacity: 0.1,     // Suficiente para que el motor gráfico lo procese
+                        opacity: 0.1,
                         pointerEvents: 'none',
-                        zIndex: -1,       // Lo escondemos DETRÁS de tu contenido real
+                        zIndex: -1,
                         bottom: 0,
                         right: 0
                     }}
                 />
 
-                {/* 1. CAPA INFERIOR: El elemento que se va. 
-                    No le ponemos fadeOut, se queda sólido mientras el otro lo tapa */}
                 {isTransitioning && previousIndex !== null &&
                     renderMedia(activePlaylist[previousIndex], 'prev', '')}
 
-                {/* 2. CAPA SUPERIOR: El elemento nuevo. 
-                    Hace fadeIn por encima del anterior */}
                 {renderMedia(activePlaylist[currentIndex], 'curr', isTransitioning ? 'fadeIn 1s forwards' : '')}
 
                 <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
             </div>
         );
+    } // <-- 1. Cierra el if de playing
 
-        return null;
-    }
+    return null; // <-- 2. El fallback por si ningún status coincide
+} // <-- 3. ✨ ¡ESTA ES LA LLAVE MÁGICA QUE FALTABA PARA CERRAR TVPlayer! ✨
 
-    const styles = {
-        startOverlay: { position: 'fixed', inset: 0, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 9999 },
-        startBox: { textAlign: 'center', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' },
-        containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
-        codeBox: { background: 'rgba(255,255,255,0.05)', padding: '40px 60px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '90%', wordBreak: 'break-all' },
-        bigCode: { fontSize: 'clamp(40px, 8vw, 70px)', margin: '15px 0', letterSpacing: '4px', fontWeight: '800', color: '#3b82f6', wordWrap: 'break-word' },
-        containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap: '20px' },
-        btnRetry: { background: 'white', color: '#ef4444', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
-        containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' },
-        playerContainer: { position: 'fixed', top: '50%', left: '50%', width: '100vw', height: '100vh', backgroundColor: 'black', overflow: 'hidden', transform: 'translate(-50%, -50%)' },
-        layer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-        mediaFull: { width: '100%', height: '100%', objectFit: 'cover' },
-    };
+// 4. Los estilos van por FUERA del componente
+const styles = {
+    startOverlay: { position: 'fixed', inset: 0, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 9999 },
+    startBox: { textAlign: 'center', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' },
+    containerPairing: { height: '100vh', width: '100vw', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', fontFamily: 'sans-serif' },
+    codeBox: { background: 'rgba(255,255,255,0.05)', padding: '40px 60px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '90%', wordBreak: 'break-all' },
+    bigCode: { fontSize: 'clamp(40px, 8vw, 70px)', margin: '15px 0', letterSpacing: '4px', fontWeight: '800', color: '#3b82f6', wordWrap: 'break-word' },
+    containerError: { height: '100vh', width: '100vw', backgroundColor: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', gap: '20px' },
+    btnRetry: { background: 'white', color: '#ef4444', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+    containerBlack: { height: '100vh', width: '100vw', backgroundColor: 'black', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white' },
+    playerContainer: { position: 'fixed', top: '50%', left: '50%', width: '100vw', height: '100vh', backgroundColor: 'black', overflow: 'hidden', transform: 'translate(-50%, -50%)' },
+    layer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    mediaFull: { width: '100%', height: '100%', objectFit: 'cover' },
+};
