@@ -647,7 +647,6 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
             ) : isEmpty && !search ? (
               <label className="upload-zone">
                 <Upload size={36} style={{ marginBottom: '12px', opacity: 0.4 }} />
-                <div className="upload-zone-title">Arrastra archivos aquí</div>
                 <div className="upload-zone-sub">o haz clic para seleccionar</div>
                 <input type="file" multiple hidden onChange={handleUpload} accept="image/*,video/*" />
               </label>
