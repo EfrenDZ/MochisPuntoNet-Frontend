@@ -6,6 +6,43 @@ import { WifiOff, CloudOff, Loader, Maximize, Lock } from 'lucide-react';
 // --- HACK: VIDEO INVISIBLE ---
 const NO_SLEEP_VIDEO_BASE64 = "data:video/mp4;base64,AAAAHGZ0eXPCisAAAAACdatzbW9vdgAAADxtdmhkAAAAAAAAAAAAAAAAAAABAAAAAAABAAABAAAAAAHAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAHBt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAChtZGlhAAAAIG1kaGQAAAAAAAAAAAAAAAAAIAAAAAEAAAAVAFAAAAAAAxBWhZGxyAAAAAAAAAAZdmNocmwAAAAXPZnJsAAAAIG1kaGQAAAAAAAAAAAAAAAAAIAAAAAEAAAAVAFAAAAAAAxBWhZGxyAAAAAAAAAAZdmNocmwAAAAXPZnJs";
 
+// --- NUEVO: Sub-componente para gestionar el ciclo de vida del video ---
+const MediaLayer = ({ item, isCurrent, isPrev, isNext, isSingleItem, onEnded }) => {
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+        if (item.type !== 'video' || !videoRef.current) return;
+
+        if (isCurrent) {
+            // Cuando le toca su turno, lo regresamos a 0 y forzamos el play
+            videoRef.current.currentTime = 0;
+            videoRef.current.play().catch(e => console.warn("Autoplay prevenido:", e));
+        } else if (isNext && !isPrev) {
+            // Cuando está oculto preparándose, lo rebobinamos y pausamos
+            videoRef.current.currentTime = 0;
+            videoRef.current.pause();
+        }
+    }, [isCurrent, isNext, isPrev, item.type]);
+
+    const mediaStyle = { width: '100%', height: '100%', objectFit: 'cover' };
+
+    if (item.type === 'video') {
+        return (
+            <video
+                ref={videoRef}
+                src={item.url}
+                muted={true}
+                playsInline
+                loop={isSingleItem}
+                onEnded={onEnded}
+                style={mediaStyle}
+            />
+        );
+    }
+
+    return <img src={item.url} style={mediaStyle} alt="slide" />;
+};
+
 export default function TVPlayer() {
     // Estados base
     const [status, setStatus] = useState('loading');
@@ -25,9 +62,9 @@ export default function TVPlayer() {
     const [hasInteracted, setHasInteracted] = useState(() => !!localStorage.getItem('device_token'));
 
     // Refs Críticas
-    const timerRef = useRef(null);         // El temporizador principal
-    const watchdogRef = useRef(null);      // El supervisor de seguridad
-    const lastSwitchTime = useRef(Date.now()); // Marca de tiempo del último cambio
+    const timerRef = useRef(null);
+    const watchdogRef = useRef(null);
+    const lastSwitchTime = useRef(Date.now());
     const wakeLockRef = useRef(null);
     const pollRef = useRef(null);
     const playlistHashRef = useRef('');
@@ -44,7 +81,6 @@ export default function TVPlayer() {
         if (token) {
             requestWakeLock();
             checkForUpdates();
-            // Revisar actualizaciones cada 30s
             const updateInterval = setInterval(checkForUpdates, 30000);
             return () => clearInterval(updateInterval);
         } else {
@@ -67,7 +103,7 @@ export default function TVPlayer() {
         };
     }, [hasInteracted]);
 
-    // NUEVO: Limpieza global de intervalos SOLO cuando el componente se destruye por completo
+    // Limpieza global de intervalos
     useEffect(() => {
         return () => {
             clearTimeout(timerRef.current);
@@ -93,18 +129,15 @@ export default function TVPlayer() {
         } catch (err) { }
     };
 
-    // 3. FUNCIÓN DE CAMBIO DE DIAPOSITIVA (Estabilizada)
+    // 3. FUNCIÓN DE CAMBIO DE DIAPOSITIVA
     const nextItem = useCallback(() => {
         if (activePlaylist.length === 0) return;
 
-        // Actualizamos la marca de tiempo para que el supervisor sepa que cambiamos
         lastSwitchTime.current = Date.now();
-
         setPreviousIndex(currentIndex);
         setIsTransitioning(true);
 
         setCurrentIndex((prev) => {
-            // Si hay playlist pendiente y llegamos al final, cambiamos
             if (prev === activePlaylist.length - 1 && pendingPlaylist) {
                 setActivePlaylist(pendingPlaylist);
                 setPendingPlaylist(null);
@@ -116,15 +149,15 @@ export default function TVPlayer() {
         setTimeout(() => {
             setIsTransitioning(false);
             setPreviousIndex(null);
-        }, 1000); // Duración de la transición CSS
+        }, 1000);
     }, [activePlaylist, pendingPlaylist, currentIndex]);
 
-    // 4. LÓGICA PRINCIPAL DE REPRODUCCIÓN + SUPERVISOR (Watchdog)
+    // 4. LÓGICA PRINCIPAL DE REPRODUCCIÓN + SUPERVISOR
     useEffect(() => {
         if (status !== 'playing' || activePlaylist.length === 0) return;
 
         if (activePlaylist.length === 1) {
-            return; // Se queda estático. Si es video, el atributo 'loop' lo repetirá limpiamente.
+            return;
         }
 
         const item = activePlaylist[currentIndex];
@@ -132,25 +165,18 @@ export default function TVPlayer() {
 
         console.log(`▶️ Play: ${item.type} | ID: ${item.item_id}`);
 
-        // Limpiar temporizadores anteriores
         clearTimeout(timerRef.current);
         clearInterval(watchdogRef.current);
 
-        // A) SI ES IMAGEN: Usamos setTimeout normal
         if (item.type !== 'video') {
             const durationSec = parseInt(item.custom_duration) || 10;
             const durationMs = durationSec * 1000;
 
-            // 1. Programar el cambio normal
             timerRef.current = setTimeout(nextItem, durationMs);
 
-            // 2. Activar el SUPERVISOR (Watchdog)
-            // Revisa cada 2 segundos. Si pasaron (duracion + 3 seg) y no ha cambiado, fuerza el cambio.
             watchdogRef.current = setInterval(() => {
                 const now = Date.now();
                 const timeDiff = now - lastSwitchTime.current;
-
-                // Si llevamos 3 segundos más de lo que debería durar la imagen...
                 if (timeDiff > (durationMs + 3000)) {
                     console.warn("⚠️ ALERTA: Imagen trabada detectada. Forzando siguiente...");
                     nextItem();
@@ -158,12 +184,8 @@ export default function TVPlayer() {
             }, 2000);
         }
 
-        // B) SI ES VIDEO: No usamos timer aquí, dependemos del evento onEnded
-        // Pero por seguridad, si el video dura 15s y lleva 25s, lo saltamos (por si falla onEnded)
         if (item.type === 'video') {
-            // Estimamos una duración máxima de seguridad (ej. 120 segundos o lo que diga la metadata)
-            // Si tus videos tienen duración en la BD, úsala. Si no, pon un límite alto.
-            const maxVideoDuration = 300 * 1000; // 5 minutos de seguridad
+            const maxVideoDuration = 300 * 1000;
             watchdogRef.current = setInterval(() => {
                 if (Date.now() - lastSwitchTime.current > maxVideoDuration) {
                     console.warn("⚠️ ALERTA: Video trabado (no lanzó onEnded). Forzando...");
@@ -177,9 +199,9 @@ export default function TVPlayer() {
             clearInterval(watchdogRef.current);
         };
 
-    }, [currentIndex, status, activePlaylist, nextItem]); // Dependencias críticas
+    }, [currentIndex, status, activePlaylist, nextItem]);
 
-    // --- CACHÉ Y DATOS (Igual que antes) ---
+    // --- CACHÉ Y DATOS ---
     const cacheMedia = async (url) => {
         try {
             if (window.location.protocol === 'https:' && url.startsWith('http:')) return url;
@@ -202,12 +224,10 @@ export default function TVPlayer() {
             return { ...item, original_url: item.url, url: localUrl };
         }));
 
-        // ✨ EL TRUCO: Si solo hay 1 elemento, lo clonamos para forzar el crossfade
+        // ✨ EL TRUCO: Clonación si solo hay 1 elemento
         if (processed.length === 1) {
             return [
                 processed[0],
-                // Creamos un clon exacto, pero con un ID diferente para que React 
-                // lo trate como un elemento distinto y aplique la transición
                 { ...processed[0], item_id: `${processed[0].item_id}_clone` }
             ];
         }
@@ -235,7 +255,6 @@ export default function TVPlayer() {
             }
 
             const serverData = res.data || [];
-            // Incluimos custom_duration en el hash para detectar cambios de tiempo
             const newHash = JSON.stringify(serverData.map(i => `${i.item_id}-${i.display_order}-${i.custom_duration}`));
 
             if (newHash !== playlistHashRef.current) {
@@ -276,7 +295,6 @@ export default function TVPlayer() {
 
     const startPairingProcess = async () => {
         try {
-            // Recuperar o generar Device ID (UUID)
             let deviceId = localStorage.getItem('device_id');
             if (!deviceId) {
                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -295,62 +313,23 @@ export default function TVPlayer() {
                 try {
                     const s = await api.post(`/tv/status?t=${Date.now()}`, { code: deviceId });
 
-                    console.log("[POLL TV STATUS] Código enviado:", deviceId);
-                    console.log("[POLL TV STATUS] Respuesta recibida:", s.data);
-
                     if (s.data.status === 'paired') {
-                        console.log("[POLL TV STATUS] ¡Vinculado! Token recibido:", s.data.token);
                         localStorage.setItem('device_token', s.data.token);
                         clearInterval(pollRef.current);
                         window.location.reload();
                     } else if (s.data.status === 'error') {
-                        console.warn("[POLL TV STATUS] Error desde servidor:", s.data.message);
                         clearInterval(pollRef.current);
-                        setStatus('suspended'); // Or a new state if needed, using suspended to show errorMsg securely
+                        setStatus('suspended');
                         setErrorMsg(s.data.message || 'Error de vinculación');
-                    } else {
-                        console.log("[POLL TV STATUS] Esperando vinculación... (status: waiting)");
                     }
                 } catch (err) {
                     console.error("Error en polling de TV:", err);
-                    // No hacer nada más — el intervalo sigue corriendo y reintenta solo
                 }
             }, 5000);
         } catch (e) {
             setStatus('offline');
             setErrorMsg('Error de inicialización de TV.');
         }
-    };
-
-    // --- RENDERIZADO ---
-    // Añadimos 'layerType' para diferenciar la capa vieja de la nueva
-    const renderMedia = (item, layerType, animationClass = '') => {
-        if (!item) return null;
-
-        const isFadingOut = animationClass.includes('fadeOut');
-        const isSingleItem = activePlaylist.length === 1;
-
-        const content = item.type === 'video' ? (
-            <video
-                src={item.url}
-                autoPlay
-                muted={true}
-                playsInline
-                loop={isSingleItem}
-                // Evitamos que el video salte si se está yendo o si es el único
-                onEnded={(!isFadingOut && !isSingleItem) ? nextItem : undefined}
-                style={styles.mediaFull}
-            />
-        ) : (
-            <img src={item.url} style={styles.mediaFull} alt="slide" />
-        );
-
-        return (
-            // IMPORTANTE: El key ya no depende de la animación
-            <div key={`${layerType}-${item.item_id}`} style={{ ...styles.layer, animation: animationClass }}>
-                {content}
-            </div>
-        );
     };
 
     // --- VISTAS ---
@@ -385,8 +364,6 @@ export default function TVPlayer() {
     if (status === 'empty') return <div style={styles.containerBlack}><CloudOff size={60} color="#64748b" /><h2>Sin Contenido</h2></div>;
 
     // VISTA PLAYING
-    // VISTA PLAYING
-    // VISTA PLAYING
     if (status === 'playing') {
         const isFlipped = rotation === 90 || rotation === 270;
         const playerStyle = {
@@ -398,78 +375,58 @@ export default function TVPlayer() {
 
         return (
             <div style={playerStyle}>
-                {/* VIDEO HACK ANTISUSPENSIÓN MEJORADO */}
+                {/* VIDEO HACK ANTISUSPENSIÓN */}
                 <video
                     src={NO_SLEEP_VIDEO_BASE64}
                     autoPlay
                     loop
                     muted
                     playsInline
-                    style={{
-                        position: 'absolute',
-                        width: '10px',
-                        height: '10px',
-                        opacity: 0.1,
-                        pointerEvents: 'none',
-                        zIndex: -1,
-                        bottom: 0,
-                        right: 0
-                    }}
+                    style={{ position: 'absolute', width: '10px', height: '10px', opacity: 0.1, pointerEvents: 'none', zIndex: -1, bottom: 0, right: 0 }}
                 />
 
-                {/* NUEVO SISTEMA DE RENDERIZADO MAP */}
+                {/* SISTEMA DE RENDERIZADO OPTIMIZADO */}
                 {activePlaylist.map((item, index) => {
                     const isCurrent = index === currentIndex;
                     const isPrev = isTransitioning && index === previousIndex;
-                    // Identificamos el siguiente elemento para precargarlo
                     const isNext = index === (currentIndex + 1) % activePlaylist.length;
 
-                    // Si no es el actual, ni el previo en transición, ni el siguiente, no lo montamos en el DOM
                     if (!isCurrent && !isPrev && !isNext) return null;
 
                     const isSingleItem = activePlaylist.length === 1;
 
-                    // 1. LÓGICA DE PRECARGA (isNext)
-                    // Lo ponemos en el DOM pero oculto, para que el navegador decodifique la imagen/video y evite el parpadeo
-                    if (isNext && !isCurrent && !isPrev) {
-                        return (
-                            <div key={item.item_id} style={{ ...styles.layer, opacity: 0, zIndex: -1 }}>
-                                {item.type === 'video' ? (
-                                    <video src={item.url} muted playsInline preload="auto" style={styles.mediaFull} />
-                                ) : (
-                                    <img src={item.url} style={styles.mediaFull} alt="preload" />
-                                )}
-                            </div>
-                        );
-                    }
+                    let layerZIndex = 0;
+                    let opacity = 1;
+                    let animationClass = '';
 
-                    // 2. LÓGICA PARA EL ACTUAL (curr) Y ANTERIOR (prev)
-                    const animationClass = (isCurrent && isTransitioning) ? 'fadeIn 1s forwards' : '';
-                    const layerZIndex = isCurrent ? 2 : 1; // El actual siempre va por encima del previo
+                    if (isCurrent) {
+                        layerZIndex = 2;
+                        animationClass = isTransitioning ? 'fadeIn 1s forwards' : '';
+                    } else if (isPrev) {
+                        layerZIndex = 1;
+                    } else if (isNext) {
+                        layerZIndex = -1;
+                        opacity = 0;
+                    }
 
                     return (
                         <div
-                            key={item.item_id} // Clave estable, React no destruirá el nodo
+                            key={item.item_id}
                             style={{
                                 ...styles.layer,
                                 zIndex: layerZIndex,
+                                opacity: opacity,
                                 animation: animationClass
                             }}
                         >
-                            {item.type === 'video' ? (
-                                <video
-                                    src={item.url}
-                                    autoPlay={isCurrent} // Solo hacemos autoplay si es la capa actual
-                                    muted={true}
-                                    playsInline
-                                    loop={isSingleItem}
-                                    // Evitamos que la capa previa dispare 'onEnded' por accidente
-                                    onEnded={(!isPrev && !isSingleItem) ? nextItem : undefined}
-                                    style={styles.mediaFull}
-                                />
-                            ) : (
-                                <img src={item.url} style={styles.mediaFull} alt="slide" />
-                            )}
+                            <MediaLayer
+                                item={item}
+                                isCurrent={isCurrent}
+                                isPrev={isPrev}
+                                isNext={isNext}
+                                isSingleItem={isSingleItem}
+                                onEnded={(!isPrev && !isSingleItem) ? nextItem : undefined}
+                            />
                         </div>
                     );
                 })}
@@ -479,10 +436,10 @@ export default function TVPlayer() {
         );
     }
 
-    return null; // <-- 2. El fallback por si ningún status coincide
-} // <-- 3. ✨ ¡ESTA ES LA LLAVE MÁGICA QUE FALTABA PARA CERRAR TVPlayer! ✨
+    return null;
+}
 
-// 4. Los estilos van por FUERA del componente
+// 4. ESTILOS
 const styles = {
     startOverlay: { position: 'fixed', inset: 0, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 9999 },
     startBox: { textAlign: 'center', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' },
