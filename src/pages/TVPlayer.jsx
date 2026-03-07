@@ -284,11 +284,24 @@ export default function TVPlayer() {
                     setStatus('suspended');
                     setErrorMsg('Su servicio ha sido suspendido temporalmente.');
                 } else {
-                    localStorage.removeItem('device_token');
-                    window.location.reload();
+                    // No borramos el token inmediatamente — podría ser un 403 transitorio
+                    // durante un redeploy del backend. Reintentamos hasta 5 veces antes de desvincularse.
+                    const failCount = parseInt(localStorage.getItem('_auth_fail_count') || '0') + 1;
+                    if (failCount >= 5) {
+                        localStorage.removeItem('device_token');
+                        localStorage.removeItem('_auth_fail_count');
+                        window.location.reload();
+                    } else {
+                        localStorage.setItem('_auth_fail_count', String(failCount));
+                        console.warn(`⚠️ Auth 403 transitorio (intento ${failCount}/5). Reintentando...`);
+                    }
                 }
-            } else if (activePlaylistRef.current.length === 0) {
-                setStatus('offline');
+            } else {
+                // En errores de red, reseteamos el contador de fallos
+                localStorage.removeItem('_auth_fail_count');
+                if (activePlaylistRef.current.length === 0) {
+                    setStatus('offline');
+                }
             }
         }
     };
