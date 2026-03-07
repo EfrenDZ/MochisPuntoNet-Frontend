@@ -3,7 +3,12 @@
  *
  * - Si es null/undefined → retorna un string vacío.
  * - Si ya empieza con "http" (Cloudinary legacy) → la retorna tal cual.
- * - Si empieza con "/uploads" (nueva, VPS) → le antepone VITE_API_URL.
+ * - Si empieza con "/uploads" (nueva, VPS) → construye la URL completa.
+ *
+ * NOTA: Express sirve los archivos en /api/uploads/... (dentro del router /api),
+ * así que usamos VITE_API_URL directamente (sin quitar /api).
+ * En local: http://localhost:4000/api/uploads/...  (proxy Vite lo maneja)
+ * En producción: /api/uploads/...  (proxy Vercel lo reenvía al backend)
  */
 export const getMediaUrl = (urlPath) => {
     if (!urlPath) return '';
@@ -14,8 +19,17 @@ export const getMediaUrl = (urlPath) => {
     }
 
     // Rutas relativas del VPS: /uploads/...
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
-    // Eliminamos el segmento "/api" si existe, ya que /uploads está en la raíz del backend
-    const baseUrl = apiBase.replace(/\/api$/, '');
-    return `${baseUrl}${urlPath}`;
+    // En producción con Vercel usamos ruta relativa /api/uploads/... para que
+    // el proxy de vercel.json lo reenvíe al backend automáticamente.
+    const apiBase = import.meta.env.VITE_API_URL || '';
+
+    if (apiBase) {
+        // Modo local (VITE_API_URL = http://localhost:4000/api)
+        // → construye http://localhost:4000/api/uploads/...
+        return `${apiBase}${urlPath}`;
+    }
+
+    // Modo producción sin VITE_API_URL definida → usa ruta relativa
+    // Vercel reescribe /api/* al backend
+    return `/api${urlPath}`;
 };
