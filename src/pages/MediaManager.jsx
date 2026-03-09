@@ -155,9 +155,9 @@ const getClientId = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   return user.client_id || null;
 };
-const isSuperAdmin = () => {
+const isSuperAdminOrAgent = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  return user.role === 'super_admin';
+  return user.role === 'super_admin' || user.role === 'super_agent';
 };
 
 // ==============================
@@ -344,7 +344,7 @@ export default function MediaManager({ isEmbedded = false, onSelectMedia = null,
   const [previewItem, setPreviewItem] = useState(null);
 
   const clientId = customClientId || getClientId();
-  const superAdmin = customClientId ? false : isSuperAdmin();
+  const superAdmin = customClientId ? false : isSuperAdminOrAgent();
   const fileInputRef = useRef(null);
   const draggedIdRef = useRef(null);
 

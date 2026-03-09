@@ -450,7 +450,7 @@ export default function MainLayout({ children }) {
     setModalError('');
     setModalSuccess(false);
 
-    // Validaciones básicas de front-end
+    // Validaciones básicas
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setModalError('Las contraseñas nuevas no coinciden.');
       return;
@@ -464,17 +464,15 @@ export default function MainLayout({ children }) {
     setIsSubmitting(true);
 
     try {
-      // Llamada al backend. Ajusta la ruta '/auth/change-password' si tu API la tiene en otro lado
-      // Dependiendo de tu backend, puede requerir el ID del usuario, o tomarlo del token JWT actual
-      await api.put(`/admin/users/${user.id}`, {
-        // Asumiendo que tu endpoint de edición de usuario acepta esto
-        password: passwordData.newPassword,
-        current_password: passwordData.currentPassword
+      // 🚀 AQUÍ ESTÁ EL CAMBIO CLAVE: Usamos la nueva ruta que creaste en el backend
+      await api.put('/auth/change-password', {
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword
       });
 
       setModalSuccess(true);
 
-      // Cerrar el modal después de un ratito para que el usuario vea el mensaje de éxito
+      // Cerrar el modal después de 2 segundos
       setTimeout(() => {
         setIsPasswordModalOpen(false);
       }, 2000);
