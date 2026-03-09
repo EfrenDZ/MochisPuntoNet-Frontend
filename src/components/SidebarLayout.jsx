@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-// 1. Agregamos 'Briefcase' para usarlo en Clientes
 import {
-  LayoutDashboard, Users, LogOut, Menu, X, Briefcase, Monitor, Image
+  LayoutDashboard, Users, LogOut, Menu, X, Briefcase, Monitor, Image, ChevronDown, User as UserIcon, Key
 } from 'lucide-react';
 import { getMediaUrl } from '../utils/getMediaUrl';
 import logoMochis from '../assets/mochis_punto_net_logo.png';
@@ -23,15 +22,12 @@ const STYLES = `
     background-color: #ffffff;
     border-bottom: 1px solid #e5e7eb;
     height: 64px;
-    
-    /* Necesario para que el menú centrado se posicione respecto a este header */
     position: sticky; 
     top: 0;
     z-index: 50;
-
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Separa Logo (izq) y Logout (der) */
+    justify-content: space-between;
     padding: 0 40px;
   }
 
@@ -40,7 +36,7 @@ const STYLES = `
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    z-index: 20; /* Aseguramos que el logo quede por encima si la pantalla se achica mucho */
+    z-index: 20;
   }
 
   /* --- NAVEGACIÓN DESKTOP CENTRADA --- */
@@ -48,8 +44,6 @@ const STYLES = `
     display: flex;
     align-items: center;
     gap: 8px;
-    
-    /* TRUCO PARA CENTRADO PERFECTO */
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
@@ -58,9 +52,71 @@ const STYLES = `
   .desktop-actions {
     display: flex;
     align-items: center;
-    z-index: 20; /* Aseguramos que el botón salir quede accesible */
+    z-index: 20;
   }
 
+  /* --- MENÚ DE USUARIO DESKTOP --- */
+  .user-menu-container {
+    position: relative;
+  }
+
+  .user-menu-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 20px;
+    transition: background-color 0.2s;
+  }
+
+  .user-menu-btn:hover {
+    background-color: #f3f4f6;
+  }
+
+  .user-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    z-index: 50;
+  }
+
+  .user-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .user-dropdown-item:hover {
+    background-color: #f3f4f6;
+  }
+
+  .user-dropdown-item.danger {
+    color: #ef4444;
+  }
+
+  .user-dropdown-item.danger:hover {
+    background-color: #fef2f2;
+  }
+
+  /* --- MÓVIL --- */
   .mobile-menu-btn {
     display: none;
     background: none;
@@ -119,18 +175,25 @@ const STYLES = `
     font-weight: 600;
   }
 
-  .logout-btn {
+  .mobile-divider {
+    height: 1px;
+    background-color: #e5e7eb;
+    margin: 10px 0;
+  }
+
+  .logout-btn-mobile {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     cursor: pointer;
     color: #ef4444;
     font-size: 14px;
     font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-top: 5px;
   }
-  .logout-btn:hover {
+  .logout-btn-mobile:hover {
     background-color: #fef2f2;
   }
 
@@ -144,22 +207,13 @@ const STYLES = `
 
   @media (max-width: 768px) {
     .top-header { padding: 0 20px; }
-    
-    /* En móvil ocultamos el menú centrado y las acciones de escritorio */
     .desktop-nav, .desktop-actions { display: none; }
     .mobile-menu-btn { display: block; }
     .main-content { padding: 20px; }
-    
     .nav-item {
       padding: 12px 16px;
       border-radius: 8px;
       margin-bottom: 5px;
-    }
-    .logout-btn {
-      margin-top: 10px;
-      border-top: 1px solid #f3f4f6;
-      border-radius: 8px;
-      padding: 12px 16px;
     }
   }
 `;
@@ -172,6 +226,8 @@ export default function MainLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
   const userData = JSON.parse(localStorage.getItem('user') || '{}');
   const userConfig = userData.clientConfig || {};
@@ -181,15 +237,28 @@ export default function MainLayout({ children }) {
   const clientSlug = localStorage.getItem('clientSlug');
   const basePath = (user?.role === 'super_admin' || user?.role === 'super_agent') ? '' : `/${clientSlug}`;
 
+  // Obtenemos el nombre a mostrar (usamos nombre, email o un genérico)
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Usuario';
+
   const DYNAMIC_STYLES = `
     .nav-item.active {
-      background-color: ${primaryColor}1a; /* 10% opacity roughly */
+      background-color: ${primaryColor}1a; 
       color: ${primaryColor};
       font-weight: 600;
     }
   `;
 
-  // 2. Definimos los iconos diferentes aquí
+  // Cierra el menú de usuario si se hace clic fuera de él
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const menuItems = [];
 
   if (user?.role === 'super_admin' || user?.role === 'super_agent') {
@@ -216,7 +285,6 @@ export default function MainLayout({ children }) {
     });
   }
 
-  // Todos los administradores ven Equipo, excepto el super_agent y el client_agent
   if (user?.role !== 'super_agent' && user?.role !== 'client_agent') {
     menuItems.push({
       icon: <Users size={18} />,
@@ -228,6 +296,7 @@ export default function MainLayout({ children }) {
   const handleNavigation = (path) => {
     navigate(path);
     setIsMobileMenuOpen(false);
+    setIsUserMenuOpen(false);
   };
 
   const handleLogout = () => {
@@ -242,7 +311,6 @@ export default function MainLayout({ children }) {
       <style>{DYNAMIC_STYLES}</style>
 
       <header className="top-header">
-
         {/* LOGO */}
         <div className="logo-area" onClick={() => navigate(`${basePath}/dashboard`)}>
           <img
@@ -252,7 +320,7 @@ export default function MainLayout({ children }) {
           />
         </div>
 
-        {/* NAVEGACIÓN ESCRITORIO (CENTRADA ABSOLUTAMENTE) */}
+        {/* NAVEGACIÓN ESCRITORIO */}
         <nav className="desktop-nav">
           {menuItems.map((item) => (
             <div
@@ -266,11 +334,34 @@ export default function MainLayout({ children }) {
           ))}
         </nav>
 
-        {/* LOGOUT */}
+        {/* ACCIONES ESCRITORIO (MENÚ USUARIO) */}
         <div className="desktop-actions">
-          <div className="logout-btn" onClick={handleLogout}>
-            <LogOut size={18} />
-            <span>Salir</span>
+          <div className="user-menu-container" ref={userMenuRef}>
+            <div
+              className="user-menu-btn"
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            >
+              <UserIcon size={18} />
+              <span>{displayName}</span>
+              <ChevronDown size={16} />
+            </div>
+
+            {/* DROPDOWN USUARIO */}
+            {isUserMenuOpen && (
+              <div className="user-dropdown">
+                <div
+                  className="user-dropdown-item"
+                  onClick={() => handleNavigation(`${basePath}/change-password`)}
+                >
+                  <Key size={16} />
+                  <span>Cambiar contraseña</span>
+                </div>
+                <div className="user-dropdown-item danger" onClick={handleLogout}>
+                  <LogOut size={16} />
+                  <span>Cerrar sesión</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -283,7 +374,7 @@ export default function MainLayout({ children }) {
         </button>
       </header>
 
-      {/* MENÚ MÓVIL */}
+      {/* MENÚ MÓVIL DESPLEGABLE */}
       <div className={`mobile-menu-dropdown ${isMobileMenuOpen ? 'open' : ''}`}>
         {menuItems.map((item) => (
           <div
@@ -295,9 +386,19 @@ export default function MainLayout({ children }) {
             <span>{item.label}</span>
           </div>
         ))}
-        <div className="logout-btn" onClick={handleLogout}>
+
+        <div className="mobile-divider"></div>
+
+        <div
+          className="nav-item"
+          onClick={() => handleNavigation(`${basePath}/change-password`)}
+        >
+          <Key size={18} />
+          <span>Cambiar contraseña</span>
+        </div>
+        <div className="logout-btn-mobile" onClick={handleLogout}>
           <LogOut size={18} />
-          <span>Cerrar Sesión</span>
+          <span>Cerrar sesión</span>
         </div>
       </div>
 
