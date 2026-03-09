@@ -336,7 +336,7 @@ export default function Dashboard() {
                     {/* Header */}
                     <div className="db-header">
                         <div>
-                            <h1 className="db-title">{greeting} 👋</h1>
+                            <h1 className="db-title">{greeting} </h1>
                             <p className="db-subtitle">
                                 {now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
                             </p>
