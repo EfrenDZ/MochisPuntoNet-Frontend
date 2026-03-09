@@ -276,9 +276,12 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const initialUser = JSON.parse(localStorage.getItem('user') || '{"role":"super_admin"}');
     const [user, setUser] = useState(initialUser);
-    const isSuperAdmin = user.role === 'super_admin';
+
+    // AQUÍ ESTÁ EL CAMBIO PRINCIPAL:
+    const isSuperAdminOrAgent = user.role === 'super_admin' || user.role === 'super_agent';
+
     const clientSlug = localStorage.getItem('clientSlug');
-    const basePath = isSuperAdmin ? '' : `/${clientSlug}`;
+    const basePath = isSuperAdminOrAgent ? '' : `/${clientSlug}`;
 
     const [stats, setStats] = useState({ clients: 0, screens: 0, online: 0, offline: 0, media: 0 });
     const [offlineScreens, setOfflineScreens] = useState([]);
@@ -346,7 +349,7 @@ export default function Dashboard() {
 
                     {/* Stats */}
                     <div className="db-stats">
-                        {isSuperAdmin && (
+                        {isSuperAdminOrAgent && (
                             <div className="stat-card">
                                 <div className="stat-label">Clientes</div>
                                 <div className="stat-value" style={{ color: '#2563eb' }}>{animated.clients}</div>
@@ -385,7 +388,7 @@ export default function Dashboard() {
 
                     {/* Main cards */}
                     <div className="db-main">
-                        {isSuperAdmin ? (
+                        {isSuperAdminOrAgent ? (
                             <div className="action-card" style={{ '--ac': '#bfdbfe' }} onClick={() => navigate('/clients')}>
                                 <div>
                                     <div className="icon-wrap" style={{ background: '#eff6ff' }}>
